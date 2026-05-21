@@ -210,16 +210,6 @@ DATA_PATH=./data    # 自定义数据存储路径
 
 ---
 
-## 🤝 贡献指南
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/amazing`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing`)
-5. 开启 Pull Request
-
----
-
 ## 📄 许可
 
 MIT License © 2026
