@@ -1,0 +1,8 @@
+{
+  "name": "Daily - 私人日记",
+  "description": "一个简洁、现代、优雅的私人日记应用，支持动态标签、图片处理及智能日期管理。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

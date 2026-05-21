@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", serif;
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #E5E5E5;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #D1D1D1;
+  }
+}
+
+/* ───── 新增：Electron 窗口拖拽与选中控制 ───── */
+/* 全局根元素允许拖拽，禁止文本选中 */
+html, body, #root {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* 可交互元素恢复鼠标事件（不可拖拽） */
+input,
+textarea,
+button,
+select,
+a,
+[role="button"],
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 可编辑文本区域允许选中 */
+input[type="text"],
+input[type="search"],
+input[type="number"],
+textarea,
+[contenteditable] {
+  user-select: text;
+}
+
+/* 按钮等保持不可选中 */
+button, a, [role="button"] {
+  user-select: none;
+}
+
+body {
+  @apply antialiased;
+}
