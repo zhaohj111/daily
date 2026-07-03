@@ -30,6 +30,21 @@ initData().catch(err => {
 
 app.use(express.json({ limit: '50mb' }));
 
+// 限制并发数的 map，避免一次性读取大量（含 Base64 图片的）日记文件撑爆内存/IO。
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
+  const ret: R[] = new Array(items.length);
+  let idx = 0;
+  const worker = async () => {
+    while (true) {
+      const i = idx++;
+      if (i >= items.length) return;
+      ret[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return ret;
+}
+
 // Settings APIs
 app.get('/api/settings', async (req, res) => {
   try {
@@ -50,20 +65,41 @@ app.post('/api/settings', async (req, res) => {
 });
 
 // Diary APIs
+// 列表接口：并行读取，且只返回轻量字段（剥离 Base64 图片与 tags），
+// 避免一次性把所有图片塞进响应导致卡顿。
 app.get('/api/diaries', async (req, res) => {
   try {
     const files = await fs.readdir(DATA_DIR);
-    const diaries = [];
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const content = await fs.readFile(path.join(DATA_DIR, file), 'utf-8');
-        diaries.push(JSON.parse(content));
+    const jsonFiles = files.filter(f => f.endsWith('.json'));
+    const results = await mapLimit(jsonFiles, 16, async (file) => {
+      try {
+        const raw = await fs.readFile(path.join(DATA_DIR, file), 'utf-8');
+        const d = JSON.parse(raw);
+        return {
+          id: d.id,
+          date: d.date,
+          content: typeof d.content === 'string' ? d.content : '',
+          updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : d.id
+        };
+      } catch {
+        return null;
       }
-    }
+    });
+    const diaries = results.filter(Boolean) as Array<{ id: number; date: string; content: string; updatedAt: number }>;
     diaries.sort((a, b) => b.id - a.id);
     res.json(diaries);
   } catch (e) {
     res.status(500).json({ error: 'Failed to read diaries' });
+  }
+});
+
+// 单篇日记完整内容（含图片、tags 等），按需加载。
+app.get('/api/diaries/:id', async (req, res) => {
+  try {
+    const raw = await fs.readFile(path.join(DATA_DIR, `${req.params.id}.json`), 'utf-8');
+    res.json(JSON.parse(raw));
+  } catch (e) {
+    res.status(404).json({ error: 'Diary not found' });
   }
 });
 

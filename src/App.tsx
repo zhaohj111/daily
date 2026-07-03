@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo} from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Search, Trash2, Edit3, Image as ImageIcon, Type, Minus, Square, X, ChevronRight, Settings as SettingsIcon, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getInitialDiaryDate } from './lib/dateUtils';
-import type { DiaryEntry, Tag, AppSettings } from './types';
+import type { DiaryEntry, DiaryListItem, Tag, AppSettings } from './types';
 
 
 function cn(...inputs: ClassValue[]) {
@@ -25,8 +25,10 @@ export default function App() {
   // 根据环境自动选择 API 基础路径
   const API_BASE = window.electronAPI ? 'http://localhost:3000' : '';
 
-  const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
+  const [diaries, setDiaries] = useState<DiaryListItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedDiary, setSelectedDiary] = useState<DiaryEntry | null>(null);
+  const loadedIdRef = useRef<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16 });
@@ -83,7 +85,25 @@ export default function App() {
     );
   }, [diaries, searchQuery]);
 
-  const selectedDiary = diaries.find(d => d.id === selectedId);
+  // 按需加载选中日记的完整内容（含 Base64 图片），
+  // 避免初次打开就把所有日记的图片全部拉取下来造成卡顿。
+  useEffect(() => {
+    if (selectedId === null) {
+      setSelectedDiary(null);
+      loadedIdRef.current = null;
+      return;
+    }
+    if (loadedIdRef.current === selectedId) return;
+    loadedIdRef.current = selectedId;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/diaries/${selectedId}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!cancelled && data) setSelectedDiary(data);
+      })
+      .catch(err => console.error('Failed to fetch diary:', err));
+    return () => { cancelled = true; };
+  }, [selectedId]);
 
   async function handleCreate() {
     const newId = Date.now();
@@ -100,8 +120,15 @@ export default function App() {
       updatedAt: newId
     };
 
-    setDiaries(prev => [newDiary, ...prev]);
+    setDiaries(prev => [{
+      id: newDiary.id,
+      date: newDiary.date,
+      content: newDiary.content,
+      updatedAt: newDiary.updatedAt
+    }, ...prev]);
     setSelectedId(newId);
+    setSelectedDiary(newDiary);
+    loadedIdRef.current = newId;
 
     try {
       await fetch(`${API_BASE}/api/diaries`, {
@@ -119,7 +146,12 @@ export default function App() {
     const prev = diaries.find(d => d.id === updated.id);
     if (!prev) return;
 
-    setDiaries(prevDiaries => prevDiaries.map(d => d.id === updated.id ? updated : d));
+    setDiaries(prevDiaries => prevDiaries.map(d =>
+      d.id === updated.id
+        ? { id: updated.id, date: updated.date, content: updated.content, updatedAt: updated.updatedAt }
+        : d
+    ));
+    setSelectedDiary(updated);
 
     try {
       const res = await fetch(`${API_BASE}/api/diaries`, {
@@ -252,6 +284,7 @@ export default function App() {
             <div
               key={diary.id}
               onClick={() => setSelectedId(diary.id)}
+              style={{ contentVisibility: 'auto', containIntrinsicSize: '76px' } as React.CSSProperties}
               className={cn(
                 "p-4 rounded-2xl cursor-pointer transition-all flex flex-col gap-1 group relative no-drag",
                 selectedId === diary.id ? "bg-gray-50 shadow-sm" : "hover:bg-gray-50/50"
@@ -389,14 +422,34 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+    addImageFiles(Array.from(files));
+    // 允许再次选择同一文件
+    e.target.value = '';
+  };
 
-    Array.from(files).forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImages(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+  // 读取图片文件并追加到 images（点击上传与拖放共用）
+  const addImageFiles = (files: File[]) => {
+    files
+      .filter(f => f.type.startsWith('image/'))
+      .forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImages(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length > 0) addImageFiles(files);
   };
 
   const addCustomTag = () => {
@@ -500,7 +553,11 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
           className="w-full h-auto min-h-[400px] bg-transparent resize-none focus:outline-none leading-relaxed text-gray-800 placeholder:text-gray-100 transition-all font-sans"
         />
 
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 no-drag"
+        >
           {images.map((img, idx) => (
             <motion.div
               layout

@@ -18,3 +18,11 @@ export interface DiaryEntry {
   fontSize: number;
   updatedAt: number;
 }
+
+// 侧边栏列表使用的轻量条目，不包含图片等大字段。
+export interface DiaryListItem {
+  id: number;
+  date: string;
+  content: string;
+  updatedAt: number;
+}
