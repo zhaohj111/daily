@@ -5,6 +5,29 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-serif: "Playfair Display", serif;
+
+  /* ─── 强调色系列（--color-accent 由 JS 动态注入，此处为默认值） ─── */
+  --color-accent: #000000;
+  --color-accent-light: color-mix(in oklch, var(--color-accent) 8%, white);
+  --color-accent-hover: color-mix(in oklch, var(--color-accent) 85%, white);
+  --color-accent-content: #ffffff;
+
+  /* ─── 中性色系列（暖灰，不依赖 accent） ─── */
+  --color-surface: #fafaf9;
+  --color-surface-elevated: #ffffff;
+  --color-surface-hover: #f5f5f4;
+  --color-surface-active: #e7e5e4;
+  --color-border: #e7e5e4;
+  --color-border-light: #f0efee;
+  --color-border-subtle: #f5f4f3;
+  --color-text: #292524;
+  --color-text-secondary: #57534e;
+  --color-text-muted: #a8a29e;
+  --color-text-placeholder: #d6d3d1;
+
+  /* ─── 语义色 ─── */
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
 }
 
 @layer utilities {
@@ -15,22 +38,20 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #E5E5E5;
+    background: var(--color-border);
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #D1D1D1;
+    background: var(--color-surface-active);
   }
 }
 
-/* ───── 新增：Electron 窗口拖拽与选中控制 ───── */
-/* 全局根元素允许拖拽，禁止文本选中 */
+/* ───── Electron 窗口拖拽与选中控制 ───── */
 html, body, #root {
   -webkit-app-region: drag;
   user-select: none;
 }
 
-/* 可交互元素恢复鼠标事件（不可拖拽） */
 input,
 textarea,
 button,
@@ -41,7 +62,6 @@ a,
   -webkit-app-region: no-drag;
 }
 
-/* 可编辑文本区域允许选中 */
 input[type="text"],
 input[type="search"],
 input[type="number"],
@@ -50,7 +70,6 @@ textarea,
   user-select: text;
 }
 
-/* 按钮等保持不可选中 */
 button, a, [role="button"] {
   user-select: none;
 }

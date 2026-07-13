@@ -11,11 +11,18 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function getContrastColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.5 ? '#000000' : '#ffffff';
+}
+
 // ──── DiaryEditor 组件 Props ────
 interface DiaryEditorProps {
   diary: DiaryEntry;
   onUpdate: (d: DiaryEntry) => void | Promise<void>;
-  themeColor: string;
   onPreviewImage: (url: string) => void;
   key?: number;
 }
@@ -77,6 +84,12 @@ export default function App() {
       console.error('Failed to fetch settings:', err);
     }
   }
+
+  // 同步主题色到 CSS 自定义属性
+  useEffect(() => {
+    document.documentElement.style.setProperty('--color-accent', settings.themeColor);
+    document.documentElement.style.setProperty('--color-accent-content', getContrastColor(settings.themeColor));
+  }, [settings.themeColor]);
 
   const filteredDiaries = useMemo(() => {
     return diaries.filter(d =>
@@ -211,26 +224,26 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#FDFDFD] text-[#333] font-sans selection:bg-black selection:text-white">
+    <div className="flex h-screen bg-surface text-text font-sans selection:bg-accent selection:text-accent-content">
       {/* 自定义标题栏（可拖拽区域） */}
       <div className="fixed top-0 left-0 right-0 h-10 z-[300] flex items-center justify-end px-4"
            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
         <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={() => window.electronAPI?.minimize()}
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-1.5 hover:bg-surface-active rounded transition-colors"
           >
             <Minus size={14} />
           </button>
           <button
             onClick={() => window.electronAPI?.toggleMaximize()}
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-1.5 hover:bg-surface-active rounded transition-colors"
           >
             {windowState === 'maximized' ? <Square size={12} /> : <Square size={14} />}
           </button>
           <button
             onClick={() => window.electronAPI?.close()}
-            className="p-1.5 hover:bg-red-500 hover:text-white rounded transition-colors"
+            className="p-1.5 hover:bg-danger hover:text-accent-content rounded transition-colors"
           >
             <X size={16} />
           </button>
@@ -241,23 +254,22 @@ export default function App() {
         initial={false}
         animate={{ width: isSidebarOpen ? 320 : 0, opacity: isSidebarOpen ? 1 : 0 }}
         className={cn(
-          "border-r border-gray-100 flex flex-col h-full bg-white relative overflow-hidden shrink-0",
+          "border-r border-border-light flex flex-col h-full bg-surface-elevated relative overflow-hidden shrink-0",
           !isSidebarOpen && "border-none"
         )}
       >
-        <div className="p-6 border-bottom border-gray-50 flex items-center justify-between">
+        <div className="p-6 border-b border-border-subtle flex items-center justify-between">
           <h1 className="text-xl font-medium tracking-tight">Daily</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+              className="p-2 hover:bg-surface-hover rounded-full transition-colors text-text-muted"
             >
               <SettingsIcon size={18} />
             </button>
             <button
               onClick={handleCreate}
-              style={{ backgroundColor: settings.themeColor }}
-              className="p-2 text-white rounded-full hover:scale-110 transition-transform active:scale-95"
+              className="p-2 bg-accent text-accent-content rounded-full hover:scale-110 transition-transform active:scale-95"
               title="新建日记"
             >
               <Plus size={20} />
@@ -267,11 +279,11 @@ export default function App() {
 
         <div className="px-6 mb-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
             <input
               type="text"
               placeholder="搜索日期或内容..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-gray-200 transition-all font-sans"
+              className="w-full pl-10 pr-4 py-2 bg-surface-hover rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-accent transition-all font-sans"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -287,44 +299,43 @@ export default function App() {
               style={{ contentVisibility: 'auto', containIntrinsicSize: '76px' } as React.CSSProperties}
               className={cn(
                 "p-4 rounded-2xl cursor-pointer transition-all flex flex-col gap-1 group relative no-drag",
-                selectedId === diary.id ? "bg-gray-50 shadow-sm" : "hover:bg-gray-50/50"
+                selectedId === diary.id ? "bg-surface-hover shadow-sm" : "hover:bg-surface-hover/50"
               )}
             >
               {selectedId === diary.id && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full" style={{ backgroundColor: settings.themeColor }} />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-accent" />
               )}
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">{diary.date}</span>
+                <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">{diary.date}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(diary.id); }}
                   className={cn(
                     "p-1.5 rounded transition-all",
-                    deletingId === diary.id ? "bg-red-500 text-white" : "text-gray-400 hover:text-red-500 hover:bg-gray-100"
+                    deletingId === diary.id ? "bg-danger text-accent-content" : "text-text-muted hover:text-danger hover:bg-surface-hover"
                   )}
                   title={deletingId === diary.id ? "再次点击确认删除" : "删除日记"}
                 >
                   {deletingId === diary.id ? <X size={14} /> : <Trash2 size={14} />}
                 </button>
               </div>
-              <p className="text-sm font-medium line-clamp-1 text-gray-700">
-                {diary.content || <span className="text-gray-300 italic">空白日记</span>}
+              <p className="text-sm font-medium line-clamp-1 text-text-secondary">
+                {diary.content || <span className="text-text-placeholder italic">空白日记</span>}
               </p>
             </div>
           ))}
           {filteredDiaries.length === 0 && (
-            <div className="text-center py-10 text-gray-400 text-sm">暂无匹配内容</div>
+            <div className="text-center py-10 text-text-muted text-sm">暂无匹配内容</div>
           )}
         </div>
       </motion.aside>
 
-      <main className="flex-1 h-full overflow-hidden relative bg-white">
+      <main className="flex-1 h-full overflow-hidden relative bg-surface-elevated">
         <AnimatePresence mode="wait">
           {selectedDiary ? (
             <DiaryEditor
               key={selectedDiary.id}
               diary={selectedDiary}
               onUpdate={handleUpdate}
-              themeColor={settings.themeColor}
               onPreviewImage={setPreviewImage}
             />
           ) : (
@@ -332,9 +343,9 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="h-full flex items-center justify-center text-gray-300 flex-col gap-4"
+              className="h-full flex items-center justify-center text-text-placeholder flex-col gap-4"
             >
-              <div className="p-8 bg-gray-50 rounded-full">
+              <div className="p-8 bg-surface-hover rounded-full">
                 <Edit3 size={48} className="opacity-20" />
               </div>
               <p className="text-sm tracking-wide">选择一篇日记开始记录</p>
@@ -351,7 +362,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setPreviewImage(null)}
-            className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-8 cursor-zoom-out"
+            className="fixed inset-0 z-[200] bg-text/90 backdrop-blur-xl flex items-center justify-center p-8 cursor-zoom-out"
           >
             <motion.img
               initial={{ scale: 0.9, opacity: 0.5 }}
@@ -360,7 +371,7 @@ export default function App() {
               alt=""
               className="max-w-full max-h-full object-contain shadow-2xl rounded-lg no-drag"
             />
-            <button className="absolute top-10 right-10 text-white/50 hover:text-white transition-colors">
+            <button className="absolute top-10 right-10 text-text-placeholder/50 hover:text-accent-content transition-colors">
               <X size={32} />
             </button>
           </motion.div>
@@ -380,7 +391,7 @@ export default function App() {
 
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="fixed bottom-6 left-6 z-50 p-3 bg-white shadow-lg border border-gray-100 rounded-full text-gray-500 hover:text-black transition-colors md:flex hidden"
+        className="fixed bottom-6 left-6 z-50 p-3 bg-surface-elevated shadow-lg border border-border-light rounded-full text-text-secondary hover:text-accent transition-colors md:flex hidden"
       >
         <ChevronRight size={20} className={cn("transition-transform duration-300", isSidebarOpen && "rotate-180")} />
       </button>
@@ -389,7 +400,7 @@ export default function App() {
 }
 
 // ──── DiaryEditor 组件 ────
-function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEditorProps) {
+function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
   const [content, setContent] = useState(diary.content);
   const [fontSize, setFontSize] = useState(diary.fontSize || 16);
   const [tags, setTags] = useState<Tag[]>(diary.tags);
@@ -482,9 +493,9 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
         {tags.map((tag, idx) => (
           <div
             key={idx}
-            className="flex items-center bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 group transition-all focus-within:ring-1 focus-within:ring-gray-200"
+            className="flex items-center bg-surface-hover px-3 py-1.5 rounded-lg border border-border-light group transition-all focus-within:ring-1 focus-within:ring-accent"
           >
-            <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest mr-2">{tag.label}</span>
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest mr-2">{tag.label}</span>
             <input
               type="text"
               value={tag.value}
@@ -495,7 +506,7 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
             {tag.isRemovable && (
               <button
                 onClick={() => setTags(tags.filter((_, i) => i !== idx))}
-                className="ml-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                className="ml-2 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-opacity"
               >
                 <X size={10} />
               </button>
@@ -503,7 +514,7 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
           </div>
         ))}
         {isAddingTag ? (
-          <div className="flex items-center bg-white border border-black rounded-lg px-2 py-1 shadow-sm">
+          <div className="flex items-center bg-surface-elevated border border-accent rounded-lg px-2 py-1 shadow-sm">
             <input
               autoFocus
               type="text"
@@ -518,28 +529,28 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
         ) : (
           <button
             onClick={() => setIsAddingTag(true)}
-            className="p-1.5 text-gray-300 hover:text-black border border-dashed border-gray-200 rounded-lg transition-all"
+            className="p-1.5 text-text-placeholder hover:text-accent border border-dashed border-border rounded-lg transition-all"
           >
             <Plus size={14} />
           </button>
         )}
       </div>
 
-      <div className="mb-8 pl-4 border-l-4 flex items-end justify-between" style={{ borderColor: themeColor }}>
+      <div className="mb-8 pl-4 border-l-4 border-l-accent flex items-end justify-between">
         <div>
-          <h2 className="text-2xl font-serif italic text-gray-400">{diary.date} 快照</h2>
-          <p className="text-[10px] font-mono text-gray-300 uppercase tracking-[0.2em] mt-1">Edited {new Date(diary.updatedAt).toLocaleTimeString()}</p>
+          <h2 className="text-2xl font-serif italic text-text-muted">{diary.date} 快照</h2>
+          <p className="text-[10px] font-mono text-text-placeholder uppercase tracking-[0.2em] mt-1">Edited {new Date(diary.updatedAt).toLocaleTimeString()}</p>
         </div>
 
-        <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
-          <Type size={14} className="text-gray-400 ml-1" />
+        <div className="flex items-center gap-2 bg-surface-hover p-1.5 rounded-xl border border-border-light">
+          <Type size={14} className="text-text-muted ml-1" />
           <input
             type="range" min="12" max="48"
             value={fontSize}
             onChange={(e) => setFontSize(parseInt(e.target.value))}
-            className="w-24 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+            className="w-24 h-1 bg-surface-active rounded-lg appearance-none cursor-pointer accent-accent"
           />
-          <span className="text-[10px] font-mono text-gray-400 w-4">{fontSize}</span>
+          <span className="text-[10px] font-mono text-text-muted w-4">{fontSize}</span>
         </div>
       </div>
 
@@ -550,7 +561,7 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
           onChange={(e) => setContent(e.target.value)}
           placeholder="开始您的记录..."
           style={{ fontSize: `${fontSize}px` }}
-          className="w-full h-auto min-h-[400px] bg-transparent resize-none focus:outline-none leading-relaxed text-gray-800 placeholder:text-gray-100 transition-all font-sans"
+          className="w-full h-auto min-h-[400px] bg-transparent resize-none focus:outline-none leading-relaxed text-text placeholder:text-text-placeholder transition-all font-sans"
         />
 
         <div
@@ -562,20 +573,20 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
             <motion.div
               layout
               key={idx}
-              className="relative aspect-square group rounded-3xl overflow-hidden shadow-sm border border-gray-100 cursor-zoom-in no-drag"
+              className="relative aspect-square group rounded-3xl overflow-hidden shadow-sm border border-border-light cursor-zoom-in no-drag"
               onClick={() => onPreviewImage(img)}
             >
               <img src={img} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
               <button
                 onClick={(e) => { e.stopPropagation(); setImages(images.filter((_, i) => i !== idx)); }}
-                className="absolute top-3 right-3 p-2 bg-black/50 text-white rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-black"
+                className="absolute top-3 right-3 p-2 bg-text/50 text-accent-content rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-text"
                 title="删除图片"
               >
                 <X size={16} />
               </button>
             </motion.div>
           ))}
-          <label className="aspect-square border-2 border-dashed border-gray-100 rounded-3xl flex flex-col items-center justify-center text-gray-300 hover:text-black hover:border-gray-300 cursor-pointer transition-all group">
+          <label className="aspect-square border-2 border-dashed border-border-light rounded-3xl flex flex-col items-center justify-center text-text-placeholder hover:text-accent hover:border-border cursor-pointer transition-all group">
             <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
             <ImageIcon size={32} className="mb-2 group-hover:scale-110 transition-transform" />
             <span className="text-[10px] font-mono tracking-widest uppercase">Upload Image</span>
@@ -583,7 +594,7 @@ function DiaryEditor({ diary, onUpdate, themeColor, onPreviewImage }: DiaryEdito
         </div>
       </div>
 
-      <div className="mt-8 pt-8 border-t border-gray-50 flex justify-between items-center text-[10px] font-mono text-gray-300 uppercase tracking-widest">
+      <div className="mt-8 pt-8 border-t border-border-subtle flex justify-between items-center text-[10px] font-mono text-text-placeholder uppercase tracking-widest">
         <span>Daily / {diary.id}</span>
         <span>{content.length} words</span>
       </div>
@@ -602,7 +613,7 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 backdrop-blur-sm p-4 no-drag"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-text/10 backdrop-blur-sm p-4 no-drag"
       onClick={onClose}
     >
       <motion.div
@@ -610,19 +621,19 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative border border-gray-100 no-drag"
+        className="bg-surface-elevated rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative border border-border-light no-drag"
       >
         <div className="p-8">
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-xl font-medium tracking-tight">个性化设置</h2>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <button onClick={onClose} className="p-2 hover:bg-surface-hover rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>
 
           <div className="space-y-10">
             <div>
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block mb-4 flex items-center gap-2">
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
                 <Palette size={12} /> 主题色
               </label>
               <div className="flex flex-wrap gap-4">
@@ -633,7 +644,7 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
                     style={{ backgroundColor: c }}
                     className={cn(
                       "w-10 h-10 rounded-2xl shadow-sm transition-all transform hover:scale-110",
-                      themeColor === c ? "ring-2 ring-offset-4 ring-black" : "opacity-80 hover:opacity-100"
+                      themeColor === c ? "ring-2 ring-offset-4 ring-accent" : "opacity-80 hover:opacity-100"
                     )}
                   />
                 ))}
@@ -641,15 +652,15 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block mb-4 flex items-center gap-2">
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
                 <Type size={12} /> 默认字体大小
               </label>
-              <div className="flex items-center gap-6 bg-gray-50 p-4 rounded-2xl">
+              <div className="flex items-center gap-6 bg-surface-hover p-4 rounded-2xl">
                 <input
                   type="range" min="12" max="48"
                   value={defaultFontSize}
                   onChange={(e) => setDefaultFontSize(parseInt(e.target.value))}
-                  className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  className="flex-1 h-1 bg-surface-active rounded-lg appearance-none cursor-pointer accent-accent"
                 />
                 <span className="text-sm font-mono w-8">{defaultFontSize}px</span>
               </div>
@@ -658,7 +669,7 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
 
           <button
             onClick={() => { onSave({ themeColor, defaultFontSize }); onClose(); }}
-            className="w-full mt-12 py-4 bg-black text-white rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
+            className="w-full mt-12 py-4 bg-accent text-accent-content rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
           >
             保存并关闭
           </button>
