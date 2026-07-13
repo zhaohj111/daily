@@ -18,7 +18,8 @@ async function initData() {
   } catch {
     await fs.writeFile(SETTINGS_FILE, JSON.stringify({
       themeColor: '#000000',
-      defaultFontSize: 16
+      defaultFontSize: 16,
+      fontPreset: 'system'
     }));
   }
 }

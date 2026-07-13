@@ -44,6 +44,52 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: var(--color-surface-active);
   }
+
+  /* ─── 玻璃拟态 ─── */
+  .glass-sidebar {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .glass-input {
+    background: rgba(255, 255, 255, 0.50);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ─── 字体预设 ─── */
+  .font-system {
+    --font-editor: "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .font-serif-cn {
+    --font-editor: "Noto Serif SC", "Songti SC", "SimSun", "PMingLiU", "Times New Roman", serif;
+  }
+  .font-kaiti {
+    --font-editor: "KaiTi", "STKaiti", "AR PL UKai CN", "TW-MOE-Kai", "Noto Serif SC", serif;
+  }
+  .font-heiti {
+    --font-editor: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Inter", system-ui, sans-serif;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   环境背景 — 极淡冷色渐变光晕
+   ═══════════════════════════════════════════ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 10%, rgba(200, 195, 220, 0.12), transparent 55%),
+    radial-gradient(ellipse 55% 60% at 85% 85%, rgba(190, 200, 225, 0.10), transparent 55%),
+    var(--color-surface);
+  pointer-events: none;
 }
 
 /* ───── Electron 窗口拖拽与选中控制 ───── */

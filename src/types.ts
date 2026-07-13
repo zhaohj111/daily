@@ -7,6 +7,7 @@ export interface Tag {
 export interface AppSettings {
   themeColor: string;
   defaultFontSize: number;
+  fontPreset: string;
 }
 
 export interface DiaryEntry {

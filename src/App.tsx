@@ -38,7 +38,7 @@ export default function App() {
   const loadedIdRef = useRef<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16 });
+  const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -90,6 +90,13 @@ export default function App() {
     document.documentElement.style.setProperty('--color-accent', settings.themeColor);
     document.documentElement.style.setProperty('--color-accent-content', getContrastColor(settings.themeColor));
   }, [settings.themeColor]);
+
+  // 同步字体预设
+  useEffect(() => {
+    document.documentElement.className = document.documentElement.className
+      .replace(/\bfont-(system|serif-cn|kaiti|heiti)\b/g, '')
+      + ` font-${settings.fontPreset || 'system'}`;
+  }, [settings.fontPreset]);
 
   const filteredDiaries = useMemo(() => {
     return diaries.filter(d =>
@@ -253,23 +260,24 @@ export default function App() {
       <motion.aside
         initial={false}
         animate={{ width: isSidebarOpen ? 320 : 0, opacity: isSidebarOpen ? 1 : 0 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 28 }}
         className={cn(
-          "border-r border-border-light flex flex-col h-full bg-surface-elevated relative overflow-hidden shrink-0",
-          !isSidebarOpen && "border-none"
+          "glass-sidebar flex flex-col h-full relative overflow-hidden shrink-0 rounded-tr-3xl rounded-br-3xl",
+          isSidebarOpen ? "border-r border-white/20" : "border-none"
         )}
       >
-        <div className="p-6 border-b border-border-subtle flex items-center justify-between">
-          <h1 className="text-xl font-medium tracking-tight">Daily</h1>
-          <div className="flex gap-2">
+        <div className="p-6 pb-5 border-b border-white/10 flex items-center justify-between">
+          <h1 className="text-xl font-light tracking-[0.06em] text-text">Daily</h1>
+          <div className="flex gap-1.5">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 hover:bg-surface-hover rounded-full transition-colors text-text-muted"
+              className="p-2 hover:bg-white/40 rounded-full transition-all duration-200 text-text-muted hover:text-text"
             >
               <SettingsIcon size={18} />
             </button>
             <button
               onClick={handleCreate}
-              className="p-2 bg-accent text-accent-content rounded-full hover:scale-110 transition-transform active:scale-95"
+              className="p-2 bg-accent text-accent-content rounded-full hover:scale-110 transition-all duration-300 active:scale-95 shadow-md shadow-accent/15"
               title="新建日记"
             >
               <Plus size={20} />
@@ -277,13 +285,13 @@ export default function App() {
           </div>
         </div>
 
-        <div className="px-6 mb-4">
+        <div className="px-5 py-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
             <input
               type="text"
               placeholder="搜索日期或内容..."
-              className="w-full pl-10 pr-4 py-2 bg-surface-hover rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-accent transition-all font-sans"
+              className="w-full pl-10 pr-4 py-2.5 glass-input rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/15 transition-all duration-300 font-sans placeholder:text-text-placeholder/60"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -291,45 +299,49 @@ export default function App() {
         </div>
 
         {/* 侧边栏滚动区域 - no-drag */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar no-drag">
+        <div className="flex-1 overflow-y-auto px-4 pt-1 pb-4 space-y-1.5 custom-scrollbar no-drag">
           {filteredDiaries.map((diary) => (
             <div
               key={diary.id}
               onClick={() => setSelectedId(diary.id)}
               style={{ contentVisibility: 'auto', containIntrinsicSize: '76px' } as React.CSSProperties}
               className={cn(
-                "p-4 rounded-2xl cursor-pointer transition-all flex flex-col gap-1 group relative no-drag",
-                selectedId === diary.id ? "bg-surface-hover shadow-sm" : "hover:bg-surface-hover/50"
+                "p-4 rounded-2xl cursor-pointer transition-all duration-300 flex flex-col gap-1 group relative no-drag",
+                selectedId === diary.id
+                  ? "bg-white/60 shadow-sm ring-1 ring-black/5 translate-x-0.5"
+                  : "hover:bg-white/40 hover:translate-x-0.5"
               )}
             >
               {selectedId === diary.id && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-accent" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-accent shadow-[0_0_6px_var(--color-accent)]" />
               )}
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">{diary.date}</span>
+                <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.12em]">{diary.date}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(diary.id); }}
                   className={cn(
-                    "p-1.5 rounded transition-all",
-                    deletingId === diary.id ? "bg-danger text-accent-content" : "text-text-muted hover:text-danger hover:bg-surface-hover"
+                    "p-1.5 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100",
+                    deletingId === diary.id
+                      ? "bg-danger text-white shadow-sm opacity-100"
+                      : "text-text-muted hover:text-danger hover:bg-white/50"
                   )}
                   title={deletingId === diary.id ? "再次点击确认删除" : "删除日记"}
                 >
                   {deletingId === diary.id ? <X size={14} /> : <Trash2 size={14} />}
                 </button>
               </div>
-              <p className="text-sm font-medium line-clamp-1 text-text-secondary">
+              <p className="text-sm font-medium line-clamp-1 text-text-secondary" style={{ fontFamily: 'var(--font-editor)' }}>
                 {diary.content || <span className="text-text-placeholder italic">空白日记</span>}
               </p>
             </div>
           ))}
           {filteredDiaries.length === 0 && (
-            <div className="text-center py-10 text-text-muted text-sm">暂无匹配内容</div>
+            <div className="text-center py-16 text-text-muted/60 text-sm font-light tracking-wider">暂无匹配内容</div>
           )}
         </div>
       </motion.aside>
 
-      <main className="flex-1 h-full overflow-hidden relative bg-surface-elevated">
+      <main className="flex-1 h-full overflow-hidden relative bg-transparent">
         <AnimatePresence mode="wait">
           {selectedDiary ? (
             <DiaryEditor
@@ -340,15 +352,16 @@ export default function App() {
             />
           ) : (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="h-full flex items-center justify-center text-text-placeholder flex-col gap-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className="h-full flex items-center justify-center text-text-placeholder flex-col gap-5"
             >
-              <div className="p-8 bg-surface-hover rounded-full">
-                <Edit3 size={48} className="opacity-20" />
+              <div className="p-10 bg-white/35 backdrop-blur-sm rounded-full ring-1 ring-black/5">
+                <Edit3 size={52} className="opacity-15" />
               </div>
-              <p className="text-sm tracking-wide">选择一篇日记开始记录</p>
+              <p className="text-sm tracking-[0.12em] font-light">选择一篇日记开始记录</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -362,7 +375,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setPreviewImage(null)}
-            className="fixed inset-0 z-[200] bg-text/90 backdrop-blur-xl flex items-center justify-center p-8 cursor-zoom-out"
+            className="fixed inset-0 z-[200] bg-[#1e1b2e]/90 backdrop-blur-2xl flex items-center justify-center p-8 cursor-zoom-out"
           >
             <motion.img
               initial={{ scale: 0.9, opacity: 0.5 }}
@@ -391,7 +404,7 @@ export default function App() {
 
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="fixed bottom-6 left-6 z-50 p-3 bg-surface-elevated shadow-lg border border-border-light rounded-full text-text-secondary hover:text-accent transition-colors md:flex hidden"
+        className="fixed bottom-6 left-6 z-50 p-3 glass-card shadow-lg rounded-full text-text-muted hover:text-accent transition-all duration-300 hover:shadow-xl hover:scale-105 md:flex hidden ring-1 ring-black/5"
       >
         <ChevronRight size={20} className={cn("transition-transform duration-300", isSidebarOpen && "rotate-180")} />
       </button>
@@ -407,6 +420,8 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
   const [images, setImages] = useState<string[]>(diary.images);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagLabel, setNewTagLabel] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCursor = useRef<number | null>(null);
 
   useEffect(() => {
     setContent(diary.content);
@@ -463,6 +478,28 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
     if (files.length > 0) addImageFiles(files);
   };
 
+  // 空格键处理：默认全角空格，仅英文单词间为半角
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== ' ') return;
+    const pos = e.currentTarget.selectionStart;
+    const before = pos > 0 ? content[pos - 1] : '';
+    // 仅当前一个字符是英文字母时，保持半角空格（英文单词间）
+    if (!/^[a-zA-Z]$/.test(before)) {
+      e.preventDefault();
+      const newVal = content.slice(0, pos) + '　' + content.slice(pos);
+      pendingCursor.current = pos + 1;
+      setContent(newVal);
+    }
+  };
+
+  // 恢复全角空格插入后的光标位置
+  useEffect(() => {
+    if (pendingCursor.current !== null && textareaRef.current) {
+      textareaRef.current.selectionStart = textareaRef.current.selectionEnd = pendingCursor.current;
+      pendingCursor.current = null;
+    }
+  }, [content]);
+
   const addCustomTag = () => {
     if (!newTagLabel.trim()) {
       setIsAddingTag(false);
@@ -489,24 +526,24 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
       exit={{ opacity: 0, y: -10 }}
       className="h-full flex flex-col p-8 md:p-12 lg:p-20 max-w-5xl mx-auto"
     >
-      <div className="flex flex-wrap items-center gap-3 mb-12">
+      <div className="flex flex-wrap items-center gap-3 mb-14">
         {tags.map((tag, idx) => (
           <div
             key={idx}
-            className="flex items-center bg-surface-hover px-3 py-1.5 rounded-lg border border-border-light group transition-all focus-within:ring-1 focus-within:ring-accent"
+            className="flex items-center glass-card px-3.5 py-2 rounded-xl group transition-all duration-300 focus-within:ring-2 focus-within:ring-accent/15 focus-within:shadow-sm"
           >
-            <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest mr-2">{tag.label}</span>
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.1em] mr-2">{tag.label}</span>
             <input
               type="text"
               value={tag.value}
               onChange={(e) => updateTagValue(idx, e.target.value)}
-              className="text-xs bg-transparent focus:outline-none w-20 min-w-min"
+              className="text-xs bg-transparent focus:outline-none w-20 min-w-min text-text-secondary"
               placeholder="..."
             />
             {tag.isRemovable && (
               <button
                 onClick={() => setTags(tags.filter((_, i) => i !== idx))}
-                className="ml-2 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-opacity"
+                className="ml-2 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all duration-200"
               >
                 <X size={10} />
               </button>
@@ -514,12 +551,12 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
           </div>
         ))}
         {isAddingTag ? (
-          <div className="flex items-center bg-surface-elevated border border-accent rounded-lg px-2 py-1 shadow-sm">
+          <div className="flex items-center glass-card border-accent/25 rounded-xl px-3 py-2 shadow-sm ring-2 ring-accent/8">
             <input
               autoFocus
               type="text"
               placeholder="标签名"
-              className="text-xs outline-none w-16"
+              className="text-xs outline-none w-16 bg-transparent"
               value={newTagLabel}
               onChange={(e) => setNewTagLabel(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addCustomTag()}
@@ -529,72 +566,74 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
         ) : (
           <button
             onClick={() => setIsAddingTag(true)}
-            className="p-1.5 text-text-placeholder hover:text-accent border border-dashed border-border rounded-lg transition-all"
+            className="p-2 text-text-placeholder hover:text-accent border border-dashed border-border rounded-xl transition-all duration-300 hover:bg-white/40 hover:border-accent/20"
           >
             <Plus size={14} />
           </button>
         )}
       </div>
 
-      <div className="mb-8 pl-4 border-l-4 border-l-accent flex items-end justify-between">
+      <div className="mb-10 pl-5 flex items-end justify-between" style={{ borderLeft: '4px solid var(--color-accent)' } as React.CSSProperties}>
         <div>
-          <h2 className="text-2xl font-serif italic text-text-muted">{diary.date} 快照</h2>
-          <p className="text-[10px] font-mono text-text-placeholder uppercase tracking-[0.2em] mt-1">Edited {new Date(diary.updatedAt).toLocaleTimeString()}</p>
+          <h2 className="text-3xl font-serif italic font-light text-text-secondary">{diary.date} 快照</h2>
+          <p className="text-[10px] font-mono text-text-placeholder/70 uppercase tracking-[0.2em] mt-2 ml-0.5">Edited {new Date(diary.updatedAt).toLocaleTimeString()}</p>
         </div>
 
-        <div className="flex items-center gap-2 bg-surface-hover p-1.5 rounded-xl border border-border-light">
-          <Type size={14} className="text-text-muted ml-1" />
+        <div className="group/toolbar flex items-center gap-2.5 p-2 rounded-2xl transition-all duration-300 hover:bg-white/25 hover:ring-1 hover:ring-black/5">
+          <Type size={14} className="text-text-muted/50 ml-1 transition-colors duration-300 group-hover/toolbar:text-text-muted" />
           <input
             type="range" min="12" max="48"
             value={fontSize}
             onChange={(e) => setFontSize(parseInt(e.target.value))}
             className="w-24 h-1 bg-surface-active rounded-lg appearance-none cursor-pointer accent-accent"
           />
-          <span className="text-[10px] font-mono text-text-muted w-4">{fontSize}</span>
+          <span className="text-[10px] font-mono text-text-muted/50 w-4 transition-all duration-300 group-hover/toolbar:text-text-muted">{fontSize}</span>
         </div>
       </div>
 
       {/* 编辑器滚动区域 - no-drag */}
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 no-drag">
         <textarea
+          ref={textareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          onKeyDown={handleEditorKeyDown}
           placeholder="开始您的记录..."
-          style={{ fontSize: `${fontSize}px` }}
-          className="w-full h-auto min-h-[400px] bg-transparent resize-none focus:outline-none leading-relaxed text-text placeholder:text-text-placeholder transition-all font-sans"
+          style={{ fontSize: `${fontSize}px`, fontFamily: 'var(--font-editor)' }}
+          className="w-full h-auto min-h-[400px] bg-transparent resize-none focus:outline-none leading-relaxed text-text placeholder:text-text-placeholder/30 transition-all font-light"
         />
 
         <div
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 no-drag"
+          className="mt-14 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 no-drag"
         >
           {images.map((img, idx) => (
             <motion.div
               layout
               key={idx}
-              className="relative aspect-square group rounded-3xl overflow-hidden shadow-sm border border-border-light cursor-zoom-in no-drag"
+              className="relative aspect-square group rounded-3xl overflow-hidden shadow-sm ring-1 ring-black/5 cursor-zoom-in no-drag hover:shadow-lg hover:-translate-y-0.5 transition-all duration-400"
               onClick={() => onPreviewImage(img)}
             >
-              <img src={img} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+              <img src={img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <button
                 onClick={(e) => { e.stopPropagation(); setImages(images.filter((_, i) => i !== idx)); }}
-                className="absolute top-3 right-3 p-2 bg-text/50 text-accent-content rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-text"
+                className="absolute top-3 right-3 p-2.5 bg-black/40 text-white rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110"
                 title="删除图片"
               >
                 <X size={16} />
               </button>
             </motion.div>
           ))}
-          <label className="aspect-square border-2 border-dashed border-border-light rounded-3xl flex flex-col items-center justify-center text-text-placeholder hover:text-accent hover:border-border cursor-pointer transition-all group">
+          <label className="aspect-square border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-text-placeholder hover:text-accent hover:border-accent/20 hover:bg-white/30 cursor-pointer transition-all duration-300 group">
             <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
-            <ImageIcon size={32} className="mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] font-mono tracking-widest uppercase">Upload Image</span>
+            <ImageIcon size={36} className="mb-3 group-hover:scale-110 transition-transform duration-300 opacity-25 group-hover:opacity-45" />
+            <span className="text-[10px] font-mono tracking-widest uppercase opacity-30 group-hover:opacity-60 transition-opacity">Upload Image</span>
           </label>
         </div>
       </div>
 
-      <div className="mt-8 pt-8 border-t border-border-subtle flex justify-between items-center text-[10px] font-mono text-text-placeholder uppercase tracking-widest">
+      <div className="mt-10 pt-8 border-t border-border-subtle flex justify-between items-center text-[10px] font-mono text-text-placeholder/60 uppercase tracking-widest">
         <span>Daily / {diary.id}</span>
         <span>{content.length} words</span>
       </div>
@@ -606,27 +645,36 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
 function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, onClose: () => void, onSave: (s: AppSettings) => void }) {
   const [themeColor, setThemeColor] = useState(settings.themeColor);
   const [defaultFontSize, setDefaultFontSize] = useState(settings.defaultFontSize);
+  const [fontPreset, setFontPreset] = useState(settings.fontPreset || 'system');
 
   const colors = [
     '#000000', '#2563EB', '#D97706', '#059669', '#DC2626', '#7C3AED', '#DB2777'
   ];
 
+  const fontPresets = [
+    { id: 'system', name: '系统默认', desc: 'Inter / 苹方', family: 'sans-serif' },
+    { id: 'serif-cn', name: '宋体', desc: 'Songti / SimSun', family: 'serif' },
+    { id: 'kaiti', name: '楷体', desc: 'KaiTi / STKaiti', family: 'serif' },
+    { id: 'heiti', name: '黑体', desc: 'PingFang / 微软雅黑', family: 'sans-serif' },
+  ];
+
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-text/10 backdrop-blur-sm p-4 no-drag"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1e1b2e]/5 backdrop-blur-md p-4 no-drag"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0, y: 16 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 16 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface-elevated rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative border border-border-light no-drag"
+        className="glass-card rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative ring-1 ring-white/20 no-drag"
       >
         <div className="p-8">
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-xl font-medium tracking-tight">个性化设置</h2>
-            <button onClick={onClose} className="p-2 hover:bg-surface-hover rounded-full transition-colors">
+            <button onClick={onClose} className="p-2 hover:bg-white/40 rounded-full transition-all duration-200 text-text-muted hover:text-text">
               <X size={20} />
             </button>
           </div>
@@ -653,9 +701,32 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
 
             <div>
               <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
+                <Type size={12} /> 编辑字体
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {fontPresets.map(fp => (
+                  <button
+                    key={fp.id}
+                    onClick={() => setFontPreset(fp.id)}
+                    className={cn(
+                      "text-left p-3.5 rounded-2xl transition-all duration-200 border",
+                      fontPreset === fp.id
+                        ? "border-accent/30 bg-accent/5 ring-1 ring-accent/10"
+                        : "border-border hover:border-border hover:bg-white/40"
+                    )}
+                  >
+                    <div className={cn("text-sm font-medium text-text", fp.family)}>{fp.name}</div>
+                    <div className="text-[10px] text-text-muted mt-0.5 font-mono">{fp.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
                 <Type size={12} /> 默认字体大小
               </label>
-              <div className="flex items-center gap-6 bg-surface-hover p-4 rounded-2xl">
+              <div className="flex items-center gap-6 bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
                 <input
                   type="range" min="12" max="48"
                   value={defaultFontSize}
@@ -668,8 +739,8 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
           </div>
 
           <button
-            onClick={() => { onSave({ themeColor, defaultFontSize }); onClose(); }}
-            className="w-full mt-12 py-4 bg-accent text-accent-content rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
+            onClick={() => { onSave({ themeColor, defaultFontSize, fontPreset }); onClose(); }}
+            className="w-full mt-12 py-4 bg-accent text-accent-content rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all duration-300 shadow-md shadow-accent/15"
           >
             保存并关闭
           </button>
