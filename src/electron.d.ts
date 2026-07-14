@@ -12,6 +12,8 @@ declare global {
       onServerReady: (callback: () => void) => () => void;
       // 数据迁移
       selectFolder: () => Promise<string | null>;
+      // 动态后端端口
+      getServerPort: () => Promise<number>;
     };
   }
 }

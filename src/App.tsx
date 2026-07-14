@@ -10,8 +10,23 @@ import SettingsModal from './components/SettingsModal';
 
 // ──── App 主组件 ────
 export default function App() {
-  // 根据环境自动选择 API 基础路径
-  const API_BASE = window.electronAPI ? 'http://localhost:3000' : '';
+  const [serverPort, setServerPort] = useState(0); // 0 = 等待主进程分配端口
+
+  // 从主进程获取动态分配的后端端口
+  useEffect(() => {
+    if (!window.electronAPI?.getServerPort) {
+      setServerPort(3000); // 浏览器模式，端口无意义
+      return;
+    }
+    window.electronAPI.getServerPort().then((port: number) => {
+      setServerPort(port || 3000);
+    });
+  }, []);
+
+  // 根据环境自动选择 API 基础路径（动态端口）
+  const API_BASE = window.electronAPI
+    ? `http://localhost:${serverPort || 3000}`
+    : '';
 
   const [diaries, setDiaries] = useState<DiaryListItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -22,10 +37,12 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // 等动态端口就绪后再加载数据
   useEffect(() => {
+    if (!serverPort) return;
     fetchDiaries();
     fetchSettings();
-  }, []);
+  }, [serverPort]);
 
   const [windowState, setWindowState] = useState<'normal' | 'maximized'>('normal');
 

@@ -19,5 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeAllListeners('server-ready');
   },
   // 数据迁移 - 文件夹选择器
-  selectFolder: () => ipcRenderer.invoke('select-folder')
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
+  // 获取动态服务端口
+  getServerPort: () => ipcRenderer.invoke('get-server-port')
 });

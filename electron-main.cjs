@@ -1,10 +1,46 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { fork, spawn } = require('child_process');
+const { fork, spawn, execSync } = require('child_process');
+const net = require('net');
 
 let mainWindow;
 let serverProcess;
+let serverPort = 0;
+
+// ──── 查找空闲端口 ────
+function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', reject);
+  });
+}
+
+// ──── 强制清理后端进程（包括整个进程树）────
+function cleanupServer() {
+  if (!serverProcess) return;
+  const pid = serverProcess.pid;
+  if (!pid) return;
+
+  try {
+    if (process.platform === 'win32') {
+      // /F 强制终止  /T 终止整个进程树（包括 tsx/node 子进程）
+      execSync(`taskkill /PID ${pid} /F /T 2>nul`, { stdio: 'ignore' });
+    } else {
+      serverProcess.kill('SIGTERM');
+      // 2 秒后如果还活着，强制 SIGKILL
+      setTimeout(() => {
+        try { process.kill(pid, 'SIGKILL'); } catch {}
+      }, 2000);
+    }
+  } catch {
+    // 进程可能已经退出
+  }
+}
 
 function getLogPath() {
   if (app.isPackaged) {
@@ -64,12 +100,22 @@ function setupIPC() {
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
   });
+
+  // 动态端口 —— 渲染进程通过 invoke 获取
+  ipcMain.handle('get-server-port', () => serverPort);
 }
 
-function startBackend() {
+async function startBackend() {
   const serverPath = path.join(__dirname, 'dist', 'server.cjs')
   const logPath = getLogPath();
   const isPackaged = app.isPackaged;
+
+  // 查找空闲端口
+  try {
+    serverPort = await findFreePort();
+  } catch (e) {
+    serverPort = 3000; // 回退到默认端口
+  }
 
   // 默认数据目录的父级（指针文件 datapath.json 存放于此）
   const defaultParent = app.isPackaged ? app.getPath('userData') : __dirname;
@@ -99,13 +145,13 @@ function startBackend() {
 
   const env = {
     ...process.env,
-    PORT: '3000',
+    PORT: String(serverPort),
     DATA_PATH: dataPath,
     DEFAULT_DATA_PARENT: defaultParent,
     NODE_ENV: isPackaged ? 'production' : 'development'
   };
 
-  log(`Starting backend...`);
+  log(`Starting backend on port ${serverPort}...`);
   log(`Server file: ${serverPath} (exists: ${fs.existsSync(serverPath)})`);
   log(`Data path: ${dataPath}`);
 
@@ -120,17 +166,29 @@ function startBackend() {
       stdio: ['pipe', 'pipe', 'pipe', 'ipc']
     });
   } else {
-    // 开发环境：用 tsx 直接运行 TypeScript 源码
-    const tsxServerPath = path.join(__dirname, 'server.ts');
-    log(`Dev mode: using tsx to run ${tsxServerPath}`);
-    try {
-      serverProcess = spawn('npx', ['tsx', tsxServerPath], {
+    // 开发环境：优先用 fork + 预编译的 server.cjs，更稳定
+    // 若 dist/server.cjs 不存在，回退到 tsx 直接运行 TypeScript 源码
+    if (fs.existsSync(serverPath)) {
+      log(`Dev mode: using compiled server.cjs`);
+      serverProcess = fork(serverPath, [], {
         env,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe', 'ipc']
       });
-    } catch (e) {
-      log(`FATAL: failed to start server with tsx: ${e.message}`);
-      return;
+    } else {
+      // 回退：直接用 node 调用 tsx CLI（避免依赖 npx PATH）
+      const tsxCliPath = path.join(__dirname, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+      const tsxServerPath = path.join(__dirname, 'server.ts');
+      log(`Dev mode: using tsx to run ${tsxServerPath}`);
+      try {
+        serverProcess = spawn(process.execPath, [tsxCliPath, tsxServerPath], {
+          env,
+          cwd: __dirname,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+      } catch (e) {
+        log(`FATAL: failed to start server: ${e.message}`);
+        return;
+      }
     }
   }
 
@@ -153,19 +211,29 @@ function startBackend() {
 
   serverProcess.on('exit', (code, signal) => {
     log(`Server exited with code ${code} signal ${signal}`);
+    serverProcess = null;
   });
 }
 
-app.whenReady().then(() => {
+// ──── 应用生命周期 ────
+app.whenReady().then(async () => {
   setupIPC();
-  startBackend();
+  await startBackend();
   setTimeout(createWindow, 1000);
 });
 
+// 窗口关闭时先清理后端进程
 app.on('window-all-closed', () => {
+  cleanupServer();
   if (process.platform !== 'darwin') app.quit();
 });
 
+// before-quit：确保在退出前清理
+app.on('before-quit', () => {
+  cleanupServer();
+});
+
+// quit：最后一道防线
 app.on('quit', () => {
-  if (serverProcess) serverProcess.kill();
+  cleanupServer();
 });

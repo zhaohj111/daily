@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --sourcemap --outfile=dist/server.cjs",
-    "electron:dev":  "concurrently \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --sourcemap --outfile=dist/server.cjs",
+    "electron:dev":  "npm run build:server && concurrently \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder"
   },
   "build": {

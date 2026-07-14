@@ -21,14 +21,21 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
   const [migrating, setMigrating] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [migrationError, setMigrationError] = useState('');
+  const [serverPort, setServerPort] = useState(0);
 
   useEffect(() => {
-    const API_BASE = window.electronAPI ? 'http://localhost:3000' : '';
+    if (!window.electronAPI?.getServerPort) return;
+    window.electronAPI.getServerPort().then(p => { if (p) setServerPort(p); });
+  }, []);
+
+  useEffect(() => {
+    if (!serverPort) return;
+    const API_BASE = window.electronAPI ? `http://localhost:${serverPort}` : '';
     fetch(`${API_BASE}/api/data-path`)
       .then(res => res.json())
       .then(data => setDataPath(data.dataPath))
       .catch(() => setDataPath('(无法获取)'));
-  }, []);
+  }, [serverPort]);
 
   const colors = [
     '#000000', '#2563EB', '#D97706', '#059669', '#DC2626', '#7C3AED', '#DB2777'
@@ -172,7 +179,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
                       setMigrationStatus('idle');
                       setMigrationError('');
                       try {
-                        const API_BASE = window.electronAPI ? 'http://localhost:3000' : '';
+                        const API_BASE = window.electronAPI ? `http://localhost:${serverPort}` : '';
                         const res = await fetch(`${API_BASE}/api/migrate`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
