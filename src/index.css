@@ -45,6 +45,15 @@
     background: var(--color-surface-active);
   }
 
+  /* 隐藏滚动条但保留滚动能力 */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* ─── 玻璃拟态 ─── */
   .glass-sidebar {
     background: rgba(255, 255, 255, 0.72);

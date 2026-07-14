@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Search, Trash2, Edit3, Image as ImageIcon, Type, Minus, Square, X, ChevronRight, Settings as SettingsIcon, Palette } from 'lucide-react';
+import { Plus, Search, Trash2, Edit3, Image as ImageIcon, Type, Minus, Square, X, ChevronRight, Settings as SettingsIcon, Palette, HardDrive, FolderOpen, AlertCircle, CheckCircle2, Loader2, MessageSquare, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getInitialDiaryDate } from './lib/dateUtils';
-import type { DiaryEntry, DiaryListItem, Tag, AppSettings } from './types';
+import type { DiaryEntry, DiaryListItem, Tag, AppSettings, Comment } from './types';
 
 
 function cn(...inputs: ClassValue[]) {
@@ -168,7 +168,7 @@ export default function App() {
 
     setDiaries(prevDiaries => prevDiaries.map(d =>
       d.id === updated.id
-        ? { id: updated.id, date: updated.date, content: updated.content, updatedAt: updated.updatedAt }
+        ? { id: updated.id, date: updated.date, content: updated.content.trimStart(), updatedAt: updated.updatedAt }
         : d
     ));
     setSelectedDiary(updated);
@@ -331,7 +331,7 @@ export default function App() {
                 </button>
               </div>
               <p className="text-sm font-medium line-clamp-1 text-text-secondary" style={{ fontFamily: 'var(--font-editor)' }}>
-                {diary.content || <span className="text-text-placeholder italic">空白日记</span>}
+                {diary.content?.trimStart() || <span className="text-text-placeholder italic">空白日记</span>}
               </p>
             </div>
           ))}
@@ -418,6 +418,10 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
   const [fontSize, setFontSize] = useState(diary.fontSize || 16);
   const [tags, setTags] = useState<Tag[]>(diary.tags);
   const [images, setImages] = useState<string[]>(diary.images);
+  const [comments, setComments] = useState<Comment[]>(diary.comments || []);
+  const [newComment, setNewComment] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagLabel, setNewTagLabel] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -428,6 +432,9 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
     setFontSize(diary.fontSize || 16);
     setTags(diary.tags);
     setImages(diary.images);
+    setComments(diary.comments || []);
+    setNewComment('');
+    setEditingCommentId(null);
   }, [diary.id]);
 
   useEffect(() => {
@@ -436,14 +443,15 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
         content !== diary.content ||
         fontSize !== diary.fontSize ||
         JSON.stringify(tags) !== JSON.stringify(diary.tags) ||
-        JSON.stringify(images) !== JSON.stringify(diary.images);
+        JSON.stringify(images) !== JSON.stringify(diary.images) ||
+        JSON.stringify(comments) !== JSON.stringify(diary.comments || []);
 
       if (hasChanged) {
-        onUpdate({ ...diary, content, fontSize, tags, images, updatedAt: Date.now() });
+        onUpdate({ ...diary, content, fontSize, tags, images, comments, updatedAt: Date.now() });
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [content, fontSize, tags, images]);
+  }, [content, fontSize, tags, images, comments]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -519,6 +527,48 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
     setTags(newTags);
   };
 
+  // ──── 评论操作 ────
+  const addComment = () => {
+    if (!newComment.trim()) return;
+    const comment: Comment = {
+      id: Date.now(),
+      content: newComment.trim(),
+      createdAt: Date.now()
+    };
+    setComments(prev => [...prev, comment]);
+    setNewComment('');
+  };
+
+  const deleteComment = (id: number) => {
+    setComments(prev => prev.filter(c => c.id !== id));
+  };
+
+  const startEditComment = (id: number, content: string) => {
+    setEditingCommentId(id);
+    setEditCommentContent(content);
+  };
+
+  const saveEditComment = (id: number) => {
+    if (!editCommentContent.trim()) return;
+    setComments(prev => prev.map(c =>
+      c.id === id ? { ...c, content: editCommentContent.trim() } : c
+    ));
+    setEditingCommentId(null);
+    setEditCommentContent('');
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentContent('');
+  };
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addComment();
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -532,12 +582,12 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
             key={idx}
             className="flex items-center glass-card px-3.5 py-2 rounded-xl group transition-all duration-300 focus-within:ring-2 focus-within:ring-accent/15 focus-within:shadow-sm"
           >
-            <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.1em] mr-2">{tag.label}</span>
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.1em] mr-2 leading-none">{tag.label}</span>
             <input
               type="text"
               value={tag.value}
               onChange={(e) => updateTagValue(idx, e.target.value)}
-              className="text-xs bg-transparent focus:outline-none w-20 min-w-min text-text-secondary"
+              className="text-[10px] font-mono bg-transparent focus:outline-none w-20 min-w-min text-text-secondary py-0 leading-none align-middle"
               placeholder="..."
             />
             {tag.isRemovable && (
@@ -556,7 +606,7 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
               autoFocus
               type="text"
               placeholder="标签名"
-              className="text-xs outline-none w-16 bg-transparent"
+              className="text-[10px] font-mono outline-none w-16 bg-transparent py-0 leading-none"
               value={newTagLabel}
               onChange={(e) => setNewTagLabel(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addCustomTag()}
@@ -592,7 +642,7 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
       </div>
 
       {/* 编辑器滚动区域 - no-drag */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 no-drag">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-0.5 no-drag">
         <textarea
           ref={textareaRef}
           value={content}
@@ -603,10 +653,82 @@ function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
           className="w-full h-auto min-h-[400px] bg-transparent resize-none focus:outline-none leading-relaxed text-text placeholder:text-text-placeholder/30 transition-all font-light"
         />
 
+        {/* ──── 评论区域 ──── */}
+        <div className="mt-10 border-t border-border-subtle pt-8 no-drag">
+          <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
+            <MessageSquare size={12} /> 评论 ({comments.length})
+          </label>
+
+          {/* 已有评论列表 */}
+          {comments.length > 0 && (
+            <div className="space-y-2.5 mb-5">
+              {comments.map(c => (
+                <div key={c.id} className="bg-white/40 backdrop-blur-sm rounded-2xl p-3 border border-black/5 group">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-mono text-text-muted/60">
+                      {new Date(c.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => startEditComment(c.id, c.content)}
+                        className="p-1 hover:bg-white/60 rounded-lg transition-colors text-text-muted hover:text-text"
+                        title="编辑"
+                      >
+                        <Edit3 size={11} />
+                      </button>
+                      <button
+                        onClick={() => deleteComment(c.id)}
+                        className="p-1 hover:bg-white/60 rounded-lg transition-colors text-text-muted hover:text-danger"
+                        title="删除"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  </div>
+                  {editingCommentId === c.id ? (
+                    <div className="flex gap-1.5 items-center">
+                      <input
+                        value={editCommentContent}
+                        onChange={e => setEditCommentContent(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') cancelEditComment(); }}
+                        className="flex-1 text-sm bg-white/60 rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-accent/20"
+                        autoFocus
+                      />
+                      <button onClick={() => saveEditComment(c.id)} className="text-[10px] px-2 py-1 bg-accent text-accent-content rounded-lg font-medium">保存</button>
+                      <button onClick={cancelEditComment} className="text-[10px] px-2 py-1 bg-surface-active text-text-muted rounded-lg">取消</button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{c.content}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 新增评论输入 */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              onKeyDown={handleCommentKeyDown}
+              placeholder="添加评论..."
+              className="flex-1 text-sm bg-white/40 backdrop-blur-sm rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-accent/20 ring-1 ring-black/5 transition-all placeholder:text-text-placeholder/50"
+            />
+            <button
+              onClick={addComment}
+              disabled={!newComment.trim()}
+              className="px-4 py-2.5 bg-accent text-accent-content rounded-2xl text-sm font-medium hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+            >
+              <Send size={14} /> 发送
+            </button>
+          </div>
+        </div>
+
         <div
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="mt-14 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 no-drag"
+          className="mt-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 no-drag"
         >
           {images.map((img, idx) => (
             <motion.div
@@ -647,6 +769,21 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
   const [defaultFontSize, setDefaultFontSize] = useState(settings.defaultFontSize);
   const [fontPreset, setFontPreset] = useState(settings.fontPreset || 'system');
 
+  // 数据迁移状态
+  const [dataPath, setDataPath] = useState('');
+  const [targetPath, setTargetPath] = useState('');
+  const [migrating, setMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [migrationError, setMigrationError] = useState('');
+
+  useEffect(() => {
+    const API_BASE = window.electronAPI ? 'http://localhost:3000' : '';
+    fetch(`${API_BASE}/api/data-path`)
+      .then(res => res.json())
+      .then(data => setDataPath(data.dataPath))
+      .catch(() => setDataPath('(无法获取)'));
+  }, []);
+
   const colors = [
     '#000000', '#2563EB', '#D97706', '#059669', '#DC2626', '#7C3AED', '#DB2777'
   ];
@@ -659,7 +796,11 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
   ];
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1e1b2e]/5 backdrop-blur-md p-4 no-drag"
       onClick={onClose}
     >
@@ -669,19 +810,22 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
         exit={{ scale: 0.95, opacity: 0, y: 16 }}
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className="glass-card rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative ring-1 ring-white/20 no-drag"
+        className="glass-card rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col relative ring-1 ring-white/20 no-drag"
       >
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-10">
+        {/* 固定头部 */}
+        <div className="px-8 pt-8 pb-2 shrink-0">
+          <div className="flex justify-between items-center">
             <h2 className="text-xl font-medium tracking-tight">个性化设置</h2>
             <button onClick={onClose} className="p-2 hover:bg-white/40 rounded-full transition-all duration-200 text-text-muted hover:text-text">
               <X size={20} />
             </button>
           </div>
+        </div>
 
-          <div className="space-y-10">
+        {/* 可滚动内容区 */}
+        <div className="px-8 pb-6 overflow-y-auto flex-1 space-y-6 scrollbar-none">
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
                 <Palette size={12} /> 主题色
               </label>
               <div className="flex flex-wrap gap-4">
@@ -700,7 +844,7 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
                 <Type size={12} /> 编辑字体
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -723,7 +867,7 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
                 <Type size={12} /> 默认字体大小
               </label>
               <div className="flex items-center gap-6 bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
@@ -736,16 +880,115 @@ function SettingsModal({ settings, onClose, onSave }: { settings: AppSettings, o
                 <span className="text-sm font-mono w-8">{defaultFontSize}px</span>
               </div>
             </div>
+
+            {/* 数据管理 */}
+            <div>
+              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
+                <HardDrive size={12} /> 数据管理
+              </label>
+              <div className="space-y-3">
+                {/* 当前数据路径 */}
+                <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
+                  <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-1">当前数据目录</div>
+                  <div className="text-xs font-mono text-text-secondary break-all">{dataPath || '加载中...'}</div>
+                </div>
+
+                {/* 选择目标目录 */}
+                <button
+                  onClick={async () => {
+                    if (!window.electronAPI?.selectFolder) return;
+                    const folder = await window.electronAPI.selectFolder();
+                    if (folder) {
+                      setTargetPath(folder);
+                      setMigrationStatus('idle');
+                      setMigrationError('');
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-2xl border border-border hover:border-accent/30 hover:bg-accent/5 transition-all duration-200 flex items-center justify-center gap-2 text-sm font-medium text-text-secondary"
+                >
+                  <FolderOpen size={16} />
+                  选择目标目录
+                </button>
+
+                {/* 目标路径 */}
+                {targetPath && (
+                  <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
+                    <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-1">目标目录</div>
+                    <div className="text-xs font-mono text-text-secondary break-all">{targetPath}</div>
+                  </div>
+                )}
+
+                {/* 迁移按钮 */}
+                {targetPath && (
+                  <button
+                    onClick={async () => {
+                      setMigrating(true);
+                      setMigrationStatus('idle');
+                      setMigrationError('');
+                      try {
+                        const API_BASE = window.electronAPI ? 'http://localhost:3000' : '';
+                        const res = await fetch(`${API_BASE}/api/migrate`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ targetPath })
+                        });
+                        const result = await res.json();
+                        if (result.success) {
+                          setMigrationStatus('success');
+                        } else {
+                          setMigrationStatus('error');
+                          setMigrationError(result.error || '未知错误');
+                        }
+                      } catch (err: any) {
+                        setMigrationStatus('error');
+                        setMigrationError(err.message || '网络错误');
+                      } finally {
+                        setMigrating(false);
+                      }
+                    }}
+                    disabled={migrating}
+                    className={cn(
+                      "w-full py-3 rounded-2xl font-medium transition-all duration-300 flex items-center justify-center gap-2 text-sm",
+                      migrating
+                        ? "bg-surface-active text-text-muted cursor-not-allowed"
+                        : "bg-accent text-accent-content hover:opacity-90 active:scale-[0.98] shadow-md shadow-accent/15"
+                    )}
+                  >
+                    {migrating ? (
+                      <><Loader2 size={16} className="animate-spin" /> 迁移中...</>
+                    ) : (
+                      '迁移数据'
+                    )}
+                  </button>
+                )}
+
+                {/* 状态反馈 */}
+                {migrationStatus === 'success' && (
+                  <div className="flex items-center gap-2 bg-green-50 text-green-700 rounded-2xl p-3 text-xs">
+                    <CheckCircle2 size={14} />
+                    <span>迁移成功，请重启应用以使用新目录。</span>
+                  </div>
+                )}
+                {migrationStatus === 'error' && (
+                  <div className="flex items-center gap-2 bg-red-50 text-red-700 rounded-2xl p-3 text-xs">
+                    <AlertCircle size={14} />
+                    <span>{migrationError}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={() => { onSave({ themeColor, defaultFontSize, fontPreset }); onClose(); }}
-            className="w-full mt-12 py-4 bg-accent text-accent-content rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all duration-300 shadow-md shadow-accent/15"
-          >
-            保存并关闭
-          </button>
-        </div>
+          {/* 固定底部按钮 */}
+          <div className="px-8 pb-8 pt-2 shrink-0">
+            <button
+              onClick={() => { onSave({ themeColor, defaultFontSize, fontPreset }); onClose(); }}
+              className="w-full py-4 bg-accent text-accent-content rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all duration-300 shadow-md shadow-accent/15"
+            >
+              保存并关闭
+            </button>
+          </div>
+        </motion.div>
       </motion.div>
-    </div>
-  );
-}
+    );
+  }

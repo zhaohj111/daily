@@ -17,5 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onServerReady: (callback) => {
     ipcRenderer.on('server-ready', () => callback());
     return () => ipcRenderer.removeAllListeners('server-ready');
-  }
+  },
+  // 数据迁移 - 文件夹选择器
+  selectFolder: () => ipcRenderer.invoke('select-folder')
 });

@@ -10,12 +10,19 @@ export interface AppSettings {
   fontPreset: string;
 }
 
+export interface Comment {
+  id: number;
+  content: string;
+  createdAt: number;
+}
+
 export interface DiaryEntry {
   id: number;
   content: string;
   date: string; // YYYY/MM/DD
   tags: Tag[];
   images: string[]; // Base64
+  comments?: Comment[];
   fontSize: number;
   updatedAt: number;
 }

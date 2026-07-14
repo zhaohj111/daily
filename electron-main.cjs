@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { fork } = require('child_process');
@@ -53,15 +53,42 @@ function setupIPC() {
     else mainWindow?.maximize();
   });
   ipcMain.on('window-close', () => mainWindow?.close());
+
+  // 数据迁移 —— 打开文件夹选择对话框
+  ipcMain.handle('select-folder', async () => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择数据存储目录',
+      properties: ['openDirectory']
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
 }
 
 function startBackend() {
-  const serverPath = path.join(__dirname, 'dist', 'server.cjs')   
+  const serverPath = path.join(__dirname, 'dist', 'server.cjs')
   const logPath = getLogPath();
   const isPackaged = app.isPackaged;
-  const dataPath = app.isPackaged
- ? path.join(app.getPath('userData'), 'data')  // C盘用户目录/data  生产环境
-  : path.join(__dirname, 'data');          // 开发环境：项目根目录/data
+
+  // 默认数据目录的父级（指针文件 datapath.json 存放于此）
+  const defaultParent = app.isPackaged ? app.getPath('userData') : __dirname;
+  const defaultDataPath = path.join(defaultParent, 'data');
+
+  // 检查指针文件，支持迁移到自定义路径
+  let dataPath = defaultDataPath;
+  try {
+    const pointerFile = path.join(defaultParent, 'datapath.json');
+    if (fs.existsSync(pointerFile)) {
+      const raw = fs.readFileSync(pointerFile, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (parsed.dataPath && typeof parsed.dataPath === 'string' && fs.existsSync(parsed.dataPath)) {
+        dataPath = parsed.dataPath;
+      }
+    }
+  } catch (e) {
+    // 静默回退到默认路径
+  }
 
   const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}`;
@@ -84,6 +111,7 @@ function startBackend() {
       ...process.env,
       PORT: '3000',
       DATA_PATH: dataPath,
+      DEFAULT_DATA_PARENT: defaultParent,
       NODE_ENV: isPackaged ? 'production' : 'development'
     },
     stdio: ['pipe', 'pipe', 'pipe', 'ipc']
