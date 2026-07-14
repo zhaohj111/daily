@@ -71,20 +71,24 @@
 ```
 daily-diary/
 ├── src/
-│   ├── App.tsx              # 主组件（侧边栏 + 编辑器 + 设置面板）
+│   ├── App.tsx              # 主组件（侧边栏 + 状态管理）
 │   ├── main.tsx             # React 入口
 │   ├── index.css            # 全局样式（主题、玻璃拟态、字体预设、滚动条）
 │   ├── electron.d.ts        # Electron API 类型声明
-│   ├── lib/
-│   │   └── dateUtils.ts     # 日期工具（凌晨 6 点前自动修正）
-│   └── types.ts             # TypeScript 类型定义
+│   ├── types.ts             # TypeScript 类型定义
+│   ├── components/
+│   │   ├── DiaryEditor.tsx  # 日记编辑器（正文、评论、图片）
+│   │   └── SettingsModal.tsx # 设置弹窗（主题、字体、数据迁移）
+│   └── lib/
+│       ├── utils.ts         # 通用工具（cn、getContrastColor）
+│       └── dateUtils.ts     # 日期工具（凌晨 6 点前自动修正）
 ├── server.ts                # Express 后端服务（REST API + 数据迁移）
 ├── electron-main.cjs        # Electron 主进程（窗口 + IPC + 路径解析）
 ├── preload.cjs              # 预加载脚本（IPC 桥接）
 ├── data/                    # 数据存储目录（自动生成）
 │   ├── diaries/             # 日记 JSON 文件
 │   └── settings.json        # 用户设置
-├── dist/                    # 构建输出
+├── dist/                    # 构建输出（不含 Git 版本控制）
 └── package.json
 ```
 
@@ -247,8 +251,11 @@ DEFAULT_DATA_PARENT   # 指针文件存放目录（生产环境为 %APPDATA%/Dai
 
 - **渲染进程 ↔ Express 服务器**：通过 HTTP REST API 通信（localhost:3000）
 - **渲染进程 ↔ Electron 主进程**：通过 IPC 通信（窗口控制、文件夹选择器）
-- **Express 服务器**：由 Electron 主进程 fork 启动，通过环境变量传递配置
+- **Express 服务器启动**：
+  - 开发模式：Electron 主进程通过 `tsx` 直接运行 `server.ts` 源码
+  - 生产模式：Electron 主进程 fork 打包后的 `dist/server.cjs`
 - **数据持久化**：JSON 文件存储，POST 全量覆写
+- **组件架构**：`App.tsx` 管理全局状态，`DiaryEditor` 和 `SettingsModal` 独立为 `src/components/` 下的组件
 
 ---
 

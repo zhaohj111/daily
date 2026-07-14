@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { fork } = require('child_process');
+const { fork, spawn } = require('child_process');
 
 let mainWindow;
 let serverProcess;
@@ -97,25 +97,42 @@ function startBackend() {
     try { fs.appendFileSync(logPath, line + '\n'); } catch (e) {}
   };
 
+  const env = {
+    ...process.env,
+    PORT: '3000',
+    DATA_PATH: dataPath,
+    DEFAULT_DATA_PARENT: defaultParent,
+    NODE_ENV: isPackaged ? 'production' : 'development'
+  };
+
   log(`Starting backend...`);
   log(`Server file: ${serverPath} (exists: ${fs.existsSync(serverPath)})`);
   log(`Data path: ${dataPath}`);
 
-  if (!fs.existsSync(serverPath)) {
-    log(`FATAL: server.cjs not found`);
-    return;
+  if (app.isPackaged) {
+    // 生产环境：fork 打包后的 server.cjs
+    if (!fs.existsSync(serverPath)) {
+      log(`FATAL: server.cjs not found`);
+      return;
+    }
+    serverProcess = fork(serverPath, [], {
+      env,
+      stdio: ['pipe', 'pipe', 'pipe', 'ipc']
+    });
+  } else {
+    // 开发环境：用 tsx 直接运行 TypeScript 源码
+    const tsxServerPath = path.join(__dirname, 'server.ts');
+    log(`Dev mode: using tsx to run ${tsxServerPath}`);
+    try {
+      serverProcess = spawn('npx', ['tsx', tsxServerPath], {
+        env,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+    } catch (e) {
+      log(`FATAL: failed to start server with tsx: ${e.message}`);
+      return;
+    }
   }
-
-  serverProcess = fork(serverPath, [], {
-    env: {
-      ...process.env,
-      PORT: '3000',
-      DATA_PATH: dataPath,
-      DEFAULT_DATA_PARENT: defaultParent,
-      NODE_ENV: isPackaged ? 'production' : 'development'
-    },
-    stdio: ['pipe', 'pipe', 'pipe', 'ipc']
-  });
 
   serverProcess.stdout.on('data', (data) => {
     const msg = data.toString().trim();
