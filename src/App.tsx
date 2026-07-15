@@ -34,7 +34,7 @@ export default function App() {
   const loadedIdRef = useRef<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system', themeMode: 'light' });
+  const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system', themeMode: 'light', customFonts: [] });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // 初始化主题（localStorage 优先，确保页面加载时立即应用，避免闪烁）
@@ -103,12 +103,23 @@ export default function App() {
     document.documentElement.style.setProperty('--color-accent-content', getContrastColor(settings.themeColor));
   }, [settings.themeColor]);
 
-  // 同步字体预设
+  // 同步字体预设（自定义字体直接设置 --font-editor）
   useEffect(() => {
+    const preset = settings.fontPreset || 'system';
+    // 先清除所有预设字体类
     document.documentElement.className = document.documentElement.className
-      .replace(/\bfont-(system|serif-cn|kaiti|heiti)\b/g, '')
-      + ` font-${settings.fontPreset || 'system'}`;
-  }, [settings.fontPreset]);
+      .replace(/\bfont-(system|serif-cn|kaiti|heiti)\b/g, '');
+
+    // 检查是否为自定义字体
+    const customFont = (settings.customFonts || []).find(f => f.id === preset);
+    if (customFont) {
+      document.documentElement.style.setProperty('--font-editor', `"${customFont.family}", serif`);
+    } else {
+      // 使用预设 CSS 类
+      document.documentElement.className += ` font-${preset}`;
+      document.documentElement.style.removeProperty('--font-editor');
+    }
+  }, [settings.fontPreset, settings.customFonts]);
 
   // 同步深色主题
   useEffect(() => {
@@ -116,6 +127,33 @@ export default function App() {
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('themeMode', settings.themeMode);
   }, [settings.themeMode]);
+
+  // 同步自定义字体 — 仅对「导入字体」动态注入 @font-face（系统字体已安装，无需注入）
+  useEffect(() => {
+    const styleId = 'custom-fonts-style';
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+
+    const importedFonts = (settings.customFonts || []).filter(f => f.source !== 'system');
+    const fontFaces = importedFonts.map(f => {
+      if (!f.fileName) return '';
+      const ext = f.fileName.split('.').pop()?.toLowerCase();
+      const formatMap: Record<string, string> = { ttf: 'truetype', otf: 'opentype', woff2: 'woff2', woff: 'woff' };
+      const format = formatMap[ext || ''] || 'truetype';
+      const fontUrl = `${API_BASE}/api/fonts/files/${encodeURIComponent(f.fileName)}`;
+      return `@font-face {
+  font-family: "${f.family}";
+  src: url("${fontUrl}") format("${format}");
+  font-display: swap;
+}`;
+    }).filter(Boolean);
+
+    styleEl.textContent = fontFaces.join('\n');
+  }, [settings.customFonts, serverPort]);
 
   // 主题切换
   function toggleTheme() {

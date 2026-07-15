@@ -8,12 +8,14 @@ const PORT = Number(process.env.PORT) || 3000;
 // 数据目录（由环境变量传入）
 const DATA_BASE = process.env.DATA_PATH || path.join(process.cwd(), 'data');
 const DATA_DIR = path.join(DATA_BASE, 'diaries');
+const FONTS_DIR = path.join(DATA_BASE, 'fonts');
 const SETTINGS_FILE = path.join(DATA_BASE, 'settings.json');
 const DEFAULT_DATA_PARENT = process.env.DEFAULT_DATA_PARENT || DATA_BASE;
 
 // 初始化数据目录
 async function initData() {
   await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(FONTS_DIR, { recursive: true });
   try {
     await fs.access(SETTINGS_FILE);
   } catch {
@@ -21,7 +23,8 @@ async function initData() {
       themeColor: '#000000',
       defaultFontSize: 16,
       fontPreset: 'system',
-      themeMode: 'light'
+      themeMode: 'light',
+      customFonts: []
     }));
   }
 }
@@ -47,6 +50,91 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
   return ret;
 }
+
+// ══════════════════════════════════════
+//  Font APIs — 静态文件服务 + 管理端点
+// ══════════════════════════════════════
+
+// 静态提供字体文件（用于 CSS @font-face 加载）
+app.use('/api/fonts/files', (req, res, next) => {
+  // 安全：只允许 .ttf / .otf / .woff2 / .woff 扩展名
+  const ext = path.extname(req.path).toLowerCase();
+  if (!['.ttf', '.otf', '.woff2', '.woff'].includes(ext)) {
+    res.status(403).json({ error: '不允许的文件类型' });
+    return;
+  }
+  next();
+}, express.static(FONTS_DIR));
+
+// 添加字体（系统字体仅存储元数据，导入字体存储文件 + 元数据）
+app.post('/api/fonts', async (req, res) => {
+  const { dataUrl, name, family, source } = req.body;
+  if (!name || !family) {
+    res.status(400).json({ error: '缺少必要参数: name, family' });
+    return;
+  }
+  try {
+    let fileName: string | undefined;
+
+    if (source === 'system') {
+      // 系统字体：不需要文件，直接引用系统已安装的字体族名
+      fileName = undefined;
+    } else {
+      // 导入字体：解析 base64 → 写入文件
+      if (!dataUrl) {
+        res.status(400).json({ error: '导入字体需要 dataUrl' });
+        return;
+      }
+      const match = dataUrl.match(/^data:font\/(\w+);base64,(.+)$/);
+      if (!match) {
+        res.status(400).json({ error: '无效的字体 data URL' });
+        return;
+      }
+      const [, ext, base64] = match;
+      const buf = Buffer.from(base64, 'base64');
+      const safeFamily = family.replace(/[^a-zA-Z0-9一-鿿_-]/g, '_').slice(0, 40);
+      fileName = `${safeFamily}_${Date.now()}.${ext === 'ttf' ? 'ttf' : ext === 'otf' ? 'otf' : 'woff2'}`;
+      await fs.writeFile(path.join(FONTS_DIR, fileName), buf);
+    }
+
+    // 更新 settings
+    const raw = await fs.readFile(SETTINGS_FILE, 'utf-8');
+    const settings = JSON.parse(raw);
+    const customFonts = settings.customFonts || [];
+    const id = `cf_${Date.now()}`;
+    customFonts.push({ id, name, family, fileName, source: source || 'imported' });
+    settings.customFonts = customFonts;
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+
+    res.json({ id, name, family, fileName, source: source || 'imported' });
+  } catch (err) {
+    res.status(500).json({ error: `字体保存失败: ${(err as Error).message}` });
+  }
+});
+
+// 删除导入的字体
+app.delete('/api/fonts/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const raw = await fs.readFile(SETTINGS_FILE, 'utf-8');
+    const settings = JSON.parse(raw);
+    const customFonts = settings.customFonts || [];
+    const idx = customFonts.findIndex((f: any) => f.id === id);
+    if (idx === -1) {
+      res.status(404).json({ error: '字体未找到' });
+      return;
+    }
+    const font = customFonts[idx];
+    // 删除字体文件
+    try { await fs.unlink(path.join(FONTS_DIR, font.fileName)); } catch { /* 文件不存在时忽略 */ }
+    customFonts.splice(idx, 1);
+    settings.customFonts = customFonts;
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: `字体删除失败: ${(err as Error).message}` });
+  }
+});
 
 // Settings APIs
 app.get('/api/settings', async (req, res) => {

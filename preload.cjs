@@ -21,5 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 数据迁移 - 文件夹选择器
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   // 获取动态服务端口
-  getServerPort: () => ipcRenderer.invoke('get-server-port')
+  getServerPort: () => ipcRenderer.invoke('get-server-port'),
+  // 本地字体管理
+  listSystemFonts: () => ipcRenderer.invoke('list-system-fonts'),
+  pickFontFile: () => ipcRenderer.invoke('pick-font-file')
 });

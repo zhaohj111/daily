@@ -180,12 +180,13 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
             key={idx}
             className="flex items-center glass-card px-3.5 py-2 rounded-xl group transition-all duration-300 focus-within:ring-2 focus-within:ring-accent/15 focus-within:shadow-sm"
           >
-            <span className="text-[10px] font-mono text-text-muted uppercase tracking-[0.1em] mr-2 leading-none">{tag.label}</span>
+            <span className="text-sm font-mono text-text-muted uppercase tracking-[0.1em] mr-2 leading-none">{tag.label}</span>
             <input
               type="text"
               value={tag.value}
               onChange={(e) => updateTagValue(idx, e.target.value)}
-              className="text-[10px] font-mono bg-transparent focus:outline-none w-20 min-w-min text-text-secondary py-0 leading-none align-middle"
+              style={{ fontFamily: 'var(--font-editor)' } as React.CSSProperties}
+              className="text-sm bg-transparent focus:outline-none w-28 min-w-min text-text-secondary py-0 leading-none align-middle"
               placeholder="..."
             />
             {tag.isRemovable && (
@@ -204,7 +205,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
               autoFocus
               type="text"
               placeholder="标签名"
-              className="text-[10px] font-mono outline-none w-16 bg-transparent py-0 leading-none"
+              className="text-sm font-mono outline-none w-20 bg-transparent py-0 leading-none"
               value={newTagLabel}
               onChange={(e) => setNewTagLabel(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addCustomTag()}
@@ -296,7 +297,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
                       <button onClick={cancelEditComment} className="text-[10px] px-2 py-1 bg-surface-active text-text-muted rounded-lg">取消</button>
                     </div>
                   ) : (
-                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{c.content}</p>
+                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words" style={{ fontFamily: 'var(--font-editor)' }}>{c.content}</p>
                   )}
                 </div>
               ))}

@@ -103,6 +103,120 @@ function setupIPC() {
 
   // 动态端口 —— 渲染进程通过 invoke 获取
   ipcMain.handle('get-server-port', () => serverPort);
+
+  // ══════════════════════════════════════
+  //  本地字体管理
+  // ══════════════════════════════════════
+
+  // 获取系统字体目录（跨平台回退方案）
+  function getSystemFontsDir() {
+    if (process.platform === 'win32') return 'C:\\Windows\\Fonts';
+    if (process.platform === 'darwin') return '/System/Library/Fonts';
+    return '/usr/share/fonts';
+  }
+
+  // 从文件名提取可读名称（回退方案）
+  function fontNameFromFile(fileName) {
+    const base = path.basename(fileName, path.extname(fileName));
+    return base
+      .replace(/[-_](Regular|Bold|Italic|BoldItalic|Light|Medium|Thin|Heavy|Black|Semibold|Normal|Oblique)$/i, '')
+      .replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // 列出系统已安装字体
+  ipcMain.handle('list-system-fonts', async () => {
+    try {
+      if (process.platform === 'win32') {
+        // 先尝试 PowerShell（获取所有已安装字体真实名称，含 .ttc）
+        try {
+          // 将脚本写入临时文件，避免命令行转义问题
+          const tmpFile = path.join(app.getPath('temp'), 'daily_list_fonts.ps1');
+          // PowerShell 脚本：获取系统字体列表，每行一个字体名
+          const psScript = [
+            '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+            'Add-Type -AssemblyName System.Drawing',
+            '$families = [System.Drawing.Text.InstalledFontCollection]::new().Families',
+            'foreach ($f in $families) { Write-Output $f.Name }',
+          ].join('\n');
+          await fs.promises.writeFile(tmpFile, psScript, 'utf-8');
+
+          const result = execSync(
+            `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpFile}"`,
+            { encoding: 'utf-8', timeout: 20000, windowsHide: true }
+          );
+
+          // 清理临时文件
+          try { await fs.promises.unlink(tmpFile); } catch {}
+
+          const trimmed = result.trim();
+          if (!trimmed) throw new Error('PowerShell returned empty output');
+
+          // 每行一个字体名，过滤空行
+          const nameList = trimmed.split(/[\r\n]+/).filter(Boolean);
+
+          const fonts = [];
+          for (var k = 0; k < nameList.length; k++) {
+            var rawName = String(nameList[k]).trim();
+            if (rawName) {
+              fonts.push({ name: rawName, family: rawName, fileName: '', path: '', source: 'system' });
+            }
+          }
+          fonts.sort(function(a, b) { return a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }); });
+          return { fonts, source: 'powershell' };
+        } catch (psErr) {
+          // PowerShell 失败 → 回退到目录扫描
+          console.log('PowerShell font listing failed, falling back to directory scan:', psErr.message);
+        }
+      }
+
+      // 非 Windows：回退到目录扫描
+      const fontsDir = getSystemFontsDir();
+      if (!fs.existsSync(fontsDir)) {
+        return { fonts: [], error: `目录不存在: ${fontsDir}` };
+      }
+      const entries = await fs.promises.readdir(fontsDir, { withFileTypes: true });
+      const fonts = [];
+      for (const entry of entries) {
+        if (entry.isDirectory()) continue;
+        const ext = path.extname(entry.name).toLowerCase();
+        if (ext !== '.ttf' && ext !== '.otf') continue;
+        const name = fontNameFromFile(entry.name);
+        fonts.push({ name, family: name, fileName: entry.name, path: path.join(fontsDir, entry.name), source: 'system' });
+      }
+      fonts.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }));
+      return { fonts, source: 'directory' };
+    } catch (err) {
+      return { fonts: [], error: err.message || String(err) };
+    }
+  });
+
+  // 打开文件选择器导入字体文件（返回 base64 data URL）
+  ipcMain.handle('pick-font-file', async () => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择字体文件',
+      filters: [{ name: '字体文件', extensions: ['ttf', 'otf', 'woff2', 'woff'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const filePath = result.filePaths[0];
+    const fileName = path.basename(filePath);
+    try {
+      const buf = await fs.promises.readFile(filePath);
+      const base64 = buf.toString('base64');
+      const ext = path.extname(fileName).toLowerCase();
+      const mimeMap = { '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff2': 'font/woff2', '.woff': 'font/woff' };
+      return {
+        name: fontNameFromFile(fileName),
+        family: fontNameFromFile(fileName),
+        fileName,
+        dataUrl: `data:${mimeMap[ext] || 'font/ttf'};base64,${base64}`,
+        size: buf.length,
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
 }
 
 async function startBackend() {
