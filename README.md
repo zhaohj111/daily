@@ -24,8 +24,10 @@
 
 ### 🎨 个性化定制
 
+- **深色主题** - 一键切换浅色/深色，跟随系统偏好，自动记忆选择
 - **主题色切换** - 7 种预设色彩（黑、蓝、橙、绿、红、紫、粉）
-- **字体预设** - 系统默认 / 宋体 / 楷体 / 黑体，适配中文书写习惯
+- **本地字体** - 浏览/导入系统已安装字体，支持导入 .ttf/.otf/.woff2 文件
+- **字体预设** - 系统默认 / 宋体 / 楷体 / 黑体，外加自定义导入字体
 - **全局字号** - 新日记默认字号可配置（12-48px）
 - **侧边栏折叠** - 为书写提供更专注的空间
 
@@ -46,7 +48,8 @@
 - **图片预览** - 点击图片全屏放大，毛玻璃背景
 - **原生窗口控制** - 自定义标题栏，支持拖拽区域
 - **流畅动画** - Framer Motion 驱动的进出场过渡
-- **玻璃拟态** - 现代 Glassmorphism 设计风格
+- **玻璃拟态** - 现代 Glassmorphism 设计风格（浅色/深色双主题）
+- **主题切换** - 侧边栏左上角 ☀/🌙 快捷按钮，切换带过渡动画
 
 ---
 
@@ -71,22 +74,23 @@
 ```
 daily-diary/
 ├── src/
-│   ├── App.tsx              # 主组件（侧边栏 + 状态管理）
+│   ├── App.tsx              # 主组件（侧边栏、状态、主题/字体切换）
 │   ├── main.tsx             # React 入口
-│   ├── index.css            # 全局样式（主题、玻璃拟态、字体预设、滚动条）
+│   ├── index.css            # 全局样式（浅/深双主题、玻璃拟态、字体、滚动条）
 │   ├── electron.d.ts        # Electron API 类型声明
 │   ├── types.ts             # TypeScript 类型定义
 │   ├── components/
-│   │   ├── DiaryEditor.tsx  # 日记编辑器（正文、评论、图片）
-│   │   └── SettingsModal.tsx # 设置弹窗（主题、字体、数据迁移）
+│   │   ├── DiaryEditor.tsx  # 日记编辑器（正文、评论、图片、标签）
+│   │   └── SettingsModal.tsx # 设置弹窗（主题色、字体管理、数据迁移）
 │   └── lib/
 │       ├── utils.ts         # 通用工具（cn、getContrastColor）
 │       └── dateUtils.ts     # 日期工具（凌晨 6 点前自动修正）
-├── server.ts                # Express 后端服务（REST API + 数据迁移）
-├── electron-main.cjs        # Electron 主进程（窗口 + IPC + 路径解析）
-├── preload.cjs              # 预加载脚本（IPC 桥接）
+├── server.ts                # Express 后端（REST API + 字体服务 + 数据迁移）
+├── electron-main.cjs        # Electron 主进程（窗口 + IPC + 系统字体扫描）
+├── preload.cjs              # 预加载脚本（窗口/字体/数据 IPC 桥接）
 ├── data/                    # 数据存储目录（自动生成）
 │   ├── diaries/             # 日记 JSON 文件
+│   ├── fonts/               # 导入的字体文件
 │   └── settings.json        # 用户设置
 ├── dist/                    # 构建输出（不含 Git 版本控制）
 └── package.json
@@ -143,6 +147,7 @@ npm run electron:build
 | 数据类型 | 存储路径                     |
 | -------- | ---------------------------- |
 | 日记文件 | `data/diaries/{id}.json`   |
+| 导入字体 | `data/fonts/{family}_{timestamp}.{ttf\|otf\|woff2}` |
 | 用户设置 | `data/settings.json`       |
 | 路径指针 | `{userData}/datapath.json` |
 
@@ -197,6 +202,8 @@ npm run electron:build
 | 删除评论   | 悬停评论 → 点击 🗑️                    |
 | 打开设置   | 点击侧边栏的 `⚙️` 图标               |
 | 折叠侧边栏 | 点击左下角的 `<` 按钮                  |
+| 切换主题   | 点击侧边栏标题旁的 ☀/🌙 按钮         |
+| 导入字体   | 设置 →「浏览系统字体」或「导入字体文件」|
 
 ### 标签说明
 
@@ -220,11 +227,13 @@ DEFAULT_DATA_PARENT   # 指针文件存放目录（生产环境为 %APPDATA%/Dai
 
 通过设置面板可配置：
 
-| 设置项             | 说明                                  | 默认值     |
-| ------------------ | ------------------------------------- | ---------- |
-| `themeColor`       | 主题色                                | `#000000`  |
-| `fontPreset`       | 编辑字体（system/serif-cn/kaiti/heiti） | `system` |
-| `defaultFontSize`  | 新日记默认字号（12-48px）             | `16`       |
+| 设置项             | 说明                                        | 默认值     |
+| ------------------ | ------------------------------------------- | ---------- |
+| `themeColor`       | 主题色                                      | `#000000`  |
+| `themeMode`        | 主题模式（`light` / `dark`）               | `light`    |
+| `fontPreset`       | 编辑字体（system/serif-cn/kaiti/heiti 或自定义字体 ID） | `system` |
+| `defaultFontSize`  | 新日记默认字号（12-48px）                   | `16`       |
+| `customFonts`      | 自定义字体列表（`{id, name, family, fileName?, source}`） | `[]` |
 
 ---
 
@@ -249,13 +258,15 @@ DEFAULT_DATA_PARENT   # 指针文件存放目录（生产环境为 %APPDATA%/Dai
 
 ### 架构说明
 
-- **渲染进程 ↔ Express 服务器**：通过 HTTP REST API 通信（localhost:3000）
-- **渲染进程 ↔ Electron 主进程**：通过 IPC 通信（窗口控制、文件夹选择器）
+- **渲染进程 ↔ Express 服务器**：通过 HTTP REST API 通信（动态端口）
+- **渲染进程 ↔ Electron 主进程**：通过 IPC 通信（窗口控制、文件夹选择器、字体管理）
 - **Express 服务器启动**：
   - 开发模式：Electron 主进程通过 `tsx` 直接运行 `server.ts` 源码
   - 生产模式：Electron 主进程 fork 打包后的 `dist/server.cjs`
-- **数据持久化**：JSON 文件存储，POST 全量覆写
-- **组件架构**：`App.tsx` 管理全局状态，`DiaryEditor` 和 `SettingsModal` 独立为 `src/components/` 下的组件
+- **数据持久化**：JSON 文件存储，POST 全量覆写；字体文件存储于 `data/fonts/`
+- **深色主题**：CSS 变量覆盖 + Tailwind `dark:` 变体 + localStorage 持久化
+- **系统字体**：Windows 通过 PowerShell 枚举已安装字体，macOS/Linux 通过目录扫描
+- **组件架构**：`App.tsx` 管理全局状态与动态 `@font-face` 注入，`DiaryEditor` 和 `SettingsModal` 独立组件
 
 ---
 
