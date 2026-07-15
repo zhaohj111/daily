@@ -363,11 +363,11 @@ export default function App() {
 
         <div className="px-5 py-4">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" size={15} />
             <input
               type="text"
               placeholder="搜索日期或内容..."
-              className="w-full pl-10 pr-4 py-2.5 glass-input rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/15 transition-all duration-300 font-sans placeholder:text-text-placeholder/60"
+              className="w-full pl-10 pr-4 py-2.5 glass-input rounded-2xl text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/15 transition-all duration-300 placeholder:text-text-muted/50"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

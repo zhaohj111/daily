@@ -160,6 +160,15 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
     setEditCommentContent('');
   };
 
+  // 评论编辑失焦时自动保存（空内容则取消）
+  const handleCommentBlur = (id: number) => {
+    if (editCommentContent.trim()) {
+      saveEditComment(id);
+    } else {
+      cancelEditComment();
+    }
+  };
+
   const handleCommentKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -254,8 +263,8 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
 
         {/* ──── 评论区域 ──── */}
         <div className="mt-10 border-t border-border-subtle pt-8 no-drag">
-          <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-4 flex items-center gap-2">
-            <MessageSquare size={12} /> 评论 ({comments.length})
+          <label className="text-sm font-mono text-text-muted uppercase tracking-[0.1em] leading-none mb-4 flex items-center gap-1.5">
+            <MessageSquare size={14} className="shrink-0" /> 评论 ({comments.length})
           </label>
 
           {/* 已有评论列表 */}
@@ -285,17 +294,15 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
                     </div>
                   </div>
                   {editingCommentId === c.id ? (
-                    <div className="flex gap-1.5 items-center">
                       <input
                         value={editCommentContent}
                         onChange={e => setEditCommentContent(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') cancelEditComment(); }}
-                        className="flex-1 text-sm bg-white/60 dark:bg-white/10 rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-accent/20"
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') cancelEditComment(); }}
+                        onBlur={() => handleCommentBlur(c.id)}
+                        className="w-full text-sm bg-transparent border border-border-light dark:border-white/5 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accent/20 transition-colors text-text-secondary"
+                        style={{ fontFamily: 'var(--font-editor)' } as React.CSSProperties}
                         autoFocus
                       />
-                      <button onClick={() => saveEditComment(c.id)} className="text-[10px] px-2 py-1 bg-accent text-accent-content rounded-lg font-medium">保存</button>
-                      <button onClick={cancelEditComment} className="text-[10px] px-2 py-1 bg-surface-active text-text-muted rounded-lg">取消</button>
-                    </div>
                   ) : (
                     <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words" style={{ fontFamily: 'var(--font-editor)' }}>{c.content}</p>
                   )}
@@ -312,12 +319,13 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
               onChange={e => setNewComment(e.target.value)}
               onKeyDown={handleCommentKeyDown}
               placeholder="添加评论..."
+              style={{ fontFamily: 'var(--font-editor)' } as React.CSSProperties}
               className="flex-1 text-sm bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-accent/20 ring-1 ring-black/5 dark:ring-white/5 transition-all placeholder:text-text-placeholder/50"
             />
             <button
               onClick={addComment}
               disabled={!newComment.trim()}
-              className="px-4 py-2.5 bg-accent text-accent-content rounded-2xl text-sm font-medium hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+              className="px-4 py-2.5 bg-accent text-accent-content rounded-2xl text-sm font-mono font-medium hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
             >
               <Send size={14} /> 发送
             </button>

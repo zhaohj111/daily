@@ -201,8 +201,8 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
         {/* 可滚动内容区 */}
         <div className="px-8 pb-6 overflow-y-auto flex-1 space-y-6 scrollbar-none">
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
-                <Palette size={12} /> 主题色
+              <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
+                <Palette size={12} className="shrink-0" /> 主题色
               </label>
               <div className="flex flex-wrap gap-4">
                 {colors.map(c => (
@@ -220,8 +220,8 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
-                <Type size={12} /> 编辑字体
+              <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
+                <Type size={12} className="shrink-0" /> 编辑字体
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {allFontOptions.map(fp => (
@@ -239,13 +239,16 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
                     <div className="text-[10px] text-text-muted mt-0.5 font-mono">{fp.desc}</div>
                     {/* 自定义字体显示删除按钮 */}
                     {customFonts.some(cf => cf.id === fp.id) && (
-                      <button
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => { e.stopPropagation(); const cf = customFonts.find(c => c.id === fp.id); if (cf) deleteCustomFont(cf); }}
-                        className="absolute top-2 right-2 p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-white/60 dark:hover:bg-white/10 transition-all text-text-muted hover:text-danger"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); const cf = customFonts.find(c => c.id === fp.id); if (cf) deleteCustomFont(cf); } }}
+                        className="absolute top-2 right-2 p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-white/60 dark:hover:bg-white/10 transition-all text-text-muted hover:text-danger cursor-pointer"
                         title="删除字体"
                       >
                         <Trash2 size={11} />
-                      </button>
+                      </span>
                     )}
                   </button>
                 ))}
@@ -254,8 +257,8 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
 
             {/* ──── 本地字体导入 ──── */}
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
-                <Upload size={12} /> 导入本地字体
+              <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
+                <Upload size={12} className="shrink-0" /> 导入本地字体
               </label>
 
               <div className="space-y-2.5">
@@ -359,8 +362,8 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
             </div>
 
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
-                <Type size={12} /> 默认字体大小
+              <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
+                <Type size={12} className="shrink-0" /> 默认字体大小
               </label>
               <div className="flex items-center gap-6 bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
                 <input
@@ -375,8 +378,8 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
 
             {/* 数据管理 */}
             <div>
-              <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
-                <HardDrive size={12} /> 数据管理
+              <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
+                <HardDrive size={12} className="shrink-0" /> 数据管理
               </label>
               <div className="space-y-3">
                 {/* 当前数据路径 */}
