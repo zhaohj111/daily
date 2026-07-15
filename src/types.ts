@@ -4,10 +4,13 @@ export interface Tag {
   isRemovable: boolean;
 }
 
+export type ThemeMode = 'light' | 'dark';
+
 export interface AppSettings {
   themeColor: string;
   defaultFontSize: number;
   fontPreset: string;
+  themeMode: ThemeMode;
 }
 
 export interface Comment {

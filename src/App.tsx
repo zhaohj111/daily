@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Search, Trash2, Edit3, X, Minus, Square, ChevronRight, Settings as SettingsIcon } from 'lucide-react';
+import { Plus, Search, Trash2, Edit3, X, Minus, Square, ChevronRight, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getContrastColor } from './lib/utils';
 import { getInitialDiaryDate } from './lib/dateUtils';
-import type { DiaryEntry, DiaryListItem, AppSettings } from './types';
+import type { DiaryEntry, DiaryListItem, AppSettings, ThemeMode } from './types';
 import DiaryEditor from './components/DiaryEditor';
 import SettingsModal from './components/SettingsModal';
 
@@ -34,8 +34,22 @@ export default function App() {
   const loadedIdRef = useRef<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system' });
+  const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system', themeMode: 'light' });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // 初始化主题（localStorage 优先，确保页面加载时立即应用，避免闪烁）
+  useEffect(() => {
+    const stored = localStorage.getItem('themeMode') as ThemeMode | null;
+    if (stored === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (stored === 'light') {
+      document.documentElement.classList.remove('dark');
+    }
+    // 如果没有存储值，跟随系统偏好
+    if (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
 
   // 等动态端口就绪后再加载数据
   useEffect(() => {
@@ -95,6 +109,25 @@ export default function App() {
       .replace(/\bfont-(system|serif-cn|kaiti|heiti)\b/g, '')
       + ` font-${settings.fontPreset || 'system'}`;
   }, [settings.fontPreset]);
+
+  // 同步深色主题
+  useEffect(() => {
+    const isDark = settings.themeMode === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('themeMode', settings.themeMode);
+  }, [settings.themeMode]);
+
+  // 主题切换
+  function toggleTheme() {
+    const next: ThemeMode = settings.themeMode === 'dark' ? 'light' : 'dark';
+    setSettings(prev => ({ ...prev, themeMode: next }));
+    // 乐观更新服务器
+    fetch(`${API_BASE}/api/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...settings, themeMode: next })
+    }).catch(err => console.error('Failed to save theme:', err));
+  }
 
   const filteredDiaries = useMemo(() => {
     return diaries.filter(d =>
@@ -261,15 +294,22 @@ export default function App() {
         transition={{ type: 'spring', stiffness: 280, damping: 28 }}
         className={cn(
           "glass-sidebar flex flex-col h-full relative overflow-hidden shrink-0 rounded-tr-3xl rounded-br-3xl",
-          isSidebarOpen ? "border-r border-white/20" : "border-none"
+          isSidebarOpen ? "border-r border-white/20 dark:border-white/5" : "border-none"
         )}
       >
-        <div className="p-6 pb-5 border-b border-white/10 flex items-center justify-between">
+        <div className="p-6 pb-5 border-b border-white/10 dark:border-white/5 flex items-center justify-between">
           <h1 className="text-xl font-light tracking-[0.06em] text-text">Daily</h1>
           <div className="flex gap-1.5">
             <button
+              onClick={toggleTheme}
+              className="p-2 hover:bg-white/40 dark:hover:bg-white/8 rounded-full transition-all duration-200 text-text-muted hover:text-text"
+              title={settings.themeMode === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+            >
+              {settings.themeMode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 hover:bg-white/40 rounded-full transition-all duration-200 text-text-muted hover:text-text"
+              className="p-2 hover:bg-white/40 dark:hover:bg-white/8 rounded-full transition-all duration-200 text-text-muted hover:text-text"
             >
               <SettingsIcon size={18} />
             </button>
@@ -306,8 +346,8 @@ export default function App() {
               className={cn(
                 "p-4 rounded-2xl cursor-pointer transition-all duration-300 flex flex-col gap-1 group relative no-drag",
                 selectedId === diary.id
-                  ? "bg-white/60 shadow-sm ring-1 ring-black/5 translate-x-0.5"
-                  : "hover:bg-white/40 hover:translate-x-0.5"
+                  ? "bg-white/60 dark:bg-white/8 shadow-sm ring-1 ring-black/5 dark:ring-white/5 translate-x-0.5"
+                  : "hover:bg-white/40 dark:hover:bg-white/5 hover:translate-x-0.5"
               )}
             >
               {selectedId === diary.id && (
@@ -321,7 +361,7 @@ export default function App() {
                     "p-1.5 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100",
                     deletingId === diary.id
                       ? "bg-danger text-white shadow-sm opacity-100"
-                      : "text-text-muted hover:text-danger hover:bg-white/50"
+                      : "text-text-muted hover:text-danger hover:bg-white/50 dark:hover:bg-white/8"
                   )}
                   title={deletingId === diary.id ? "再次点击确认删除" : "删除日记"}
                 >
@@ -356,7 +396,7 @@ export default function App() {
               transition={{ duration: 0.4, ease: 'easeOut' }}
               className="h-full flex items-center justify-center text-text-placeholder flex-col gap-5"
             >
-              <div className="p-10 bg-white/35 backdrop-blur-sm rounded-full ring-1 ring-black/5">
+              <div className="p-10 bg-white/35 dark:bg-white/5 backdrop-blur-sm rounded-full ring-1 ring-black/5 dark:ring-white/5">
                 <Edit3 size={52} className="opacity-15" />
               </div>
               <p className="text-sm tracking-[0.12em] font-light">选择一篇日记开始记录</p>
@@ -402,7 +442,7 @@ export default function App() {
 
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="fixed bottom-6 left-6 z-50 p-3 glass-card shadow-lg rounded-full text-text-muted hover:text-accent transition-all duration-300 hover:shadow-xl hover:scale-105 md:flex hidden ring-1 ring-black/5"
+        className="fixed bottom-6 left-6 z-50 p-3 glass-card shadow-lg rounded-full text-text-muted hover:text-accent transition-all duration-300 hover:shadow-xl hover:scale-105 md:flex hidden ring-1 ring-black/5 dark:ring-white/5"
       >
         <ChevronRight size={20} className={cn("transition-transform duration-300", isSidebarOpen && "rotate-180")} />
       </button>

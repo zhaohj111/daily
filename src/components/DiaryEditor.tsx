@@ -80,7 +80,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const files = Array.from(e.dataTransfer.files ?? []);
+    const files = Array.from<File>(e.dataTransfer.files ?? []);
     if (files.length > 0) addImageFiles(files);
   };
 
@@ -214,7 +214,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
         ) : (
           <button
             onClick={() => setIsAddingTag(true)}
-            className="p-2 text-text-placeholder hover:text-accent border border-dashed border-border rounded-xl transition-all duration-300 hover:bg-white/40 hover:border-accent/20"
+            className="p-2 text-text-placeholder hover:text-accent border border-dashed border-border rounded-xl transition-all duration-300 hover:bg-white/40 dark:hover:bg-white/5 hover:border-accent/20"
           >
             <Plus size={14} />
           </button>
@@ -227,7 +227,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
           <p className="text-[10px] font-mono text-text-placeholder/70 uppercase tracking-[0.2em] mt-2 ml-0.5">Edited {new Date(diary.updatedAt).toLocaleTimeString()}</p>
         </div>
 
-        <div className="group/toolbar flex items-center gap-2.5 p-2 rounded-2xl transition-all duration-300 hover:bg-white/25 hover:ring-1 hover:ring-black/5">
+        <div className="group/toolbar flex items-center gap-2.5 p-2 rounded-2xl transition-all duration-300 hover:bg-white/25 dark:hover:bg-white/5 hover:ring-1 hover:ring-black/5 dark:hover:ring-white/5">
           <Type size={14} className="text-text-muted/50 ml-1 transition-colors duration-300 group-hover/toolbar:text-text-muted" />
           <input
             type="range" min="12" max="48"
@@ -261,7 +261,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
           {comments.length > 0 && (
             <div className="space-y-2.5 mb-5">
               {comments.map(c => (
-                <div key={c.id} className="bg-white/40 backdrop-blur-sm rounded-2xl p-3 border border-black/5 group">
+                <div key={c.id} className="bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-3 border border-black/5 dark:border-white/5 group">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-mono text-text-muted/60">
                       {new Date(c.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -269,14 +269,14 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
                     <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => startEditComment(c.id, c.content)}
-                        className="p-1 hover:bg-white/60 rounded-lg transition-colors text-text-muted hover:text-text"
+                        className="p-1 hover:bg-white/60 dark:hover:bg-white/10 rounded-lg transition-colors text-text-muted hover:text-text"
                         title="编辑"
                       >
                         <Edit3 size={11} />
                       </button>
                       <button
                         onClick={() => deleteComment(c.id)}
-                        className="p-1 hover:bg-white/60 rounded-lg transition-colors text-text-muted hover:text-danger"
+                        className="p-1 hover:bg-white/60 dark:hover:bg-white/10 rounded-lg transition-colors text-text-muted hover:text-danger"
                         title="删除"
                       >
                         <Trash2 size={11} />
@@ -289,7 +289,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
                         value={editCommentContent}
                         onChange={e => setEditCommentContent(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') cancelEditComment(); }}
-                        className="flex-1 text-sm bg-white/60 rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-accent/20"
+                        className="flex-1 text-sm bg-white/60 dark:bg-white/10 rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-accent/20"
                         autoFocus
                       />
                       <button onClick={() => saveEditComment(c.id)} className="text-[10px] px-2 py-1 bg-accent text-accent-content rounded-lg font-medium">保存</button>
@@ -311,7 +311,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
               onChange={e => setNewComment(e.target.value)}
               onKeyDown={handleCommentKeyDown}
               placeholder="添加评论..."
-              className="flex-1 text-sm bg-white/40 backdrop-blur-sm rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-accent/20 ring-1 ring-black/5 transition-all placeholder:text-text-placeholder/50"
+              className="flex-1 text-sm bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-accent/20 ring-1 ring-black/5 dark:ring-white/5 transition-all placeholder:text-text-placeholder/50"
             />
             <button
               onClick={addComment}
@@ -345,7 +345,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
               </button>
             </motion.div>
           ))}
-          <label className="aspect-square border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-text-placeholder hover:text-accent hover:border-accent/20 hover:bg-white/30 cursor-pointer transition-all duration-300 group">
+          <label className="aspect-square border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-text-placeholder hover:text-accent hover:border-accent/20 hover:bg-white/30 dark:hover:bg-white/5 cursor-pointer transition-all duration-300 group">
             <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
             <ImageIcon size={36} className="mb-3 group-hover:scale-110 transition-transform duration-300 opacity-25 group-hover:opacity-45" />
             <span className="text-[10px] font-mono tracking-widest uppercase opacity-30 group-hover:opacity-60 transition-opacity">Upload Image</span>

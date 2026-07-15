@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,700&display=swap');
 @import "tailwindcss";
 
+/* ─── Tailwind v4 深色模式变体（class 策略） ─── */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -131,4 +134,58 @@ button, a, [role="button"] {
 
 body {
   @apply antialiased;
+}
+
+/* ═══════════════════════════════════════════
+   深色主题 — 优雅暗色暖调
+   ═══════════════════════════════════════════ */
+.dark {
+  /* ─── 中性色系列（深色暖灰） ─── */
+  --color-surface: #1a1a1c;
+  --color-surface-elevated: #242426;
+  --color-surface-hover: #2c2c2f;
+  --color-surface-active: #38383c;
+  --color-border: #38383c;
+  --color-border-light: #2c2c2f;
+  --color-border-subtle: #222224;
+  --color-text: #e4e4e7;
+  --color-text-secondary: #a1a1a6;
+  --color-text-muted: #636366;
+  --color-text-placeholder: #48484a;
+
+  /* ─── 语义色在深色下微调 ─── */
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+}
+
+/* ─── 深色主题：环境背景光晕 ─── */
+.dark body::before {
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 10%, rgba(60, 55, 80, 0.18), transparent 55%),
+    radial-gradient(ellipse 55% 60% at 85% 85%, rgba(50, 55, 75, 0.14), transparent 55%),
+    var(--color-surface);
+}
+
+/* ─── 深色主题：玻璃拟态变体 ─── */
+.dark .glass-sidebar {
+  background: rgba(30, 30, 32, 0.82);
+}
+.dark .glass-input {
+  background: rgba(45, 45, 48, 0.55);
+}
+.dark .glass-card {
+  background: rgba(38, 38, 40, 0.70);
+}
+
+/* ─── 深色主题：滚动条 ─── */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-surface-active);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ─── 主题切换过渡动画 ─── */
+:root {
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
 }

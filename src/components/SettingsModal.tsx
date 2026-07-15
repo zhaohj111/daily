@@ -54,7 +54,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1e1b2e]/5 backdrop-blur-md p-4 no-drag"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1e1b2e]/5 dark:bg-black/40 backdrop-blur-md p-4 no-drag"
       onClick={onClose}
     >
       <motion.div
@@ -63,13 +63,13 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
         exit={{ scale: 0.95, opacity: 0, y: 16 }}
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
-        className="glass-card rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col relative ring-1 ring-white/20 no-drag"
+        className="glass-card rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col relative ring-1 ring-white/20 dark:ring-white/5 no-drag"
       >
         {/* 固定头部 */}
         <div className="px-8 pt-8 pb-2 shrink-0">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-medium tracking-tight">个性化设置</h2>
-            <button onClick={onClose} className="p-2 hover:bg-white/40 rounded-full transition-all duration-200 text-text-muted hover:text-text">
+            <button onClick={onClose} className="p-2 hover:bg-white/40 dark:hover:bg-white/8 rounded-full transition-all duration-200 text-text-muted hover:text-text">
               <X size={20} />
             </button>
           </div>
@@ -109,7 +109,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
                       "text-left p-3.5 rounded-2xl transition-all duration-200 border",
                       fontPreset === fp.id
                         ? "border-accent/30 bg-accent/5 ring-1 ring-accent/10"
-                        : "border-border hover:border-border hover:bg-white/40"
+                        : "border-border hover:border-border hover:bg-white/40 dark:hover:bg-white/5"
                     )}
                   >
                     <div className={cn("text-sm font-medium text-text", fp.family)}>{fp.name}</div>
@@ -123,7 +123,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
               <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest block mb-3 flex items-center gap-2">
                 <Type size={12} /> 默认字体大小
               </label>
-              <div className="flex items-center gap-6 bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
+              <div className="flex items-center gap-6 bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
                 <input
                   type="range" min="12" max="48"
                   value={defaultFontSize}
@@ -141,7 +141,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
               </label>
               <div className="space-y-3">
                 {/* 当前数据路径 */}
-                <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
+                <div className="bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
                   <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-1">当前数据目录</div>
                   <div className="text-xs font-mono text-text-secondary break-all">{dataPath || '加载中...'}</div>
                 </div>
@@ -165,7 +165,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
 
                 {/* 目标路径 */}
                 {targetPath && (
-                  <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5">
+                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
                     <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-1">目标目录</div>
                     <div className="text-xs font-mono text-text-secondary break-all">{targetPath}</div>
                   </div>
@@ -217,13 +217,13 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
 
                 {/* 状态反馈 */}
                 {migrationStatus === 'success' && (
-                  <div className="flex items-center gap-2 bg-green-50 text-green-700 rounded-2xl p-3 text-xs">
+                  <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-2xl p-3 text-xs">
                     <CheckCircle2 size={14} />
                     <span>迁移成功，请重启应用以使用新目录。</span>
                   </div>
                 )}
                 {migrationStatus === 'error' && (
-                  <div className="flex items-center gap-2 bg-red-50 text-red-700 rounded-2xl p-3 text-xs">
+                  <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-2xl p-3 text-xs">
                     <AlertCircle size={14} />
                     <span>{migrationError}</span>
                   </div>
@@ -235,7 +235,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
           {/* 固定底部按钮 */}
           <div className="px-8 pb-8 pt-2 shrink-0">
             <button
-              onClick={() => { onSave({ themeColor, defaultFontSize, fontPreset }); onClose(); }}
+              onClick={() => { onSave({ themeColor, defaultFontSize, fontPreset, themeMode: settings.themeMode }); onClose(); }}
               className="w-full py-4 bg-accent text-accent-content rounded-2xl font-medium hover:opacity-90 active:scale-[0.98] transition-all duration-300 shadow-md shadow-accent/15"
             >
               保存并关闭
