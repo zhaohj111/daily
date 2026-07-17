@@ -187,7 +187,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
         {tags.map((tag, idx) => (
           <div
             key={idx}
-            className="flex items-center glass-card px-3.5 py-2 rounded-xl group transition-all duration-300 focus-within:ring-2 focus-within:ring-accent/15 focus-within:shadow-sm"
+            className="flex items-baseline glass-card px-3.5 py-2 rounded-xl group transition-all duration-300 focus-within:ring-2 focus-within:ring-accent/15 focus-within:shadow-sm"
           >
             <span className="text-sm font-mono text-text-muted uppercase tracking-[0.1em] mr-2 leading-none">{tag.label}</span>
             <input
@@ -195,7 +195,7 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
               value={tag.value}
               onChange={(e) => updateTagValue(idx, e.target.value)}
               style={{ fontFamily: 'var(--font-editor)' } as React.CSSProperties}
-              className="text-sm bg-transparent focus:outline-none w-28 min-w-min text-text-secondary py-0 leading-none align-middle"
+              className="text-sm bg-transparent focus:outline-none w-28 min-w-min text-text-secondary p-0 leading-none"
               placeholder="..."
             />
             {tag.isRemovable && (
@@ -362,9 +362,9 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
         </div>
       </div>
 
-      <div className="mt-10 pt-8 border-t border-border-subtle flex justify-between items-center text-[10px] font-mono text-text-placeholder/60 uppercase tracking-widest">
+      <div className="mt-10 pt-8 border-t border-border-subtle flex justify-between items-center text-xs font-mono text-text-muted uppercase tracking-widest">
         <span>Daily / {diary.id}</span>
-        <span>{content.length} words</span>
+        <span className="font-medium text-text-secondary">{content.length} words</span>
       </div>
     </motion.div>
   );

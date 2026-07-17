@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,700&display=swap');
 @import "tailwindcss";
 
 /* ─── Tailwind v4 深色模式变体（class 策略） ─── */
@@ -8,6 +8,7 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-serif: "Playfair Display", serif;
+  --font-display: "Abril Fatface", "Playfair Display", serif;
 
   /* ─── 强调色系列（--color-accent 由 JS 动态注入，此处为默认值） ─── */
   --color-accent: #000000;
