@@ -336,7 +336,7 @@ export default function App() {
         )}
       >
         <div className="p-6 pb-5 border-b border-white/10 dark:border-white/5 flex items-center justify-between">
-          <h1 className="text-xl tracking-[0.04em] text-text leading-none" style={{ fontFamily: 'var(--font-editor)' }}>Daily</h1>
+          <h1 className="text-xl tracking-[0.04em] text-text leading-none">Daily</h1>
           <div className="flex gap-1.5">
             <button
               onClick={toggleTheme}
