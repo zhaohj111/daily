@@ -79,16 +79,22 @@ export default function App() {
   useEffect(() => {
     if (!window.electronAPI?.onUpdateStatus) return;
     const cleanup = window.electronAPI.onUpdateStatus((data) => {
+      // 兜底：同版本不提示更新
+      const isNewer = data.version && appVersion && data.version !== appVersion;
+      const status = (data.status === 'available' || data.status === 'downloaded') && !isNewer
+        ? 'not-available'
+        : data.status;
       setUpdateStatus({
         ...data,
+        status,
         releaseNotes: stripHtml(data.releaseNotes),
       } as UpdateStatus);
-      if (data.status === 'available') {
+      if (status === 'available') {
         setUpdateBadgeSeen(false);
       }
     });
     return cleanup;
-  }, []);
+  }, [appVersion]);
 
   // 获取应用版本号
   useEffect(() => {
@@ -108,7 +114,9 @@ export default function App() {
     if (!window.electronAPI?.checkForUpdates) return;
     setUpdateStatus({ status: 'checking' });
     const result = await window.electronAPI.checkForUpdates();
-    if (result.updateAvailable) {
+    // 兜底：同版本号不视为更新
+    const isNewer = result.updateAvailable && result.version && result.version !== appVersion;
+    if (isNewer) {
       setUpdateStatus({
         status: 'available',
         version: result.version,
