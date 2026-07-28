@@ -3,7 +3,7 @@ import { Plus, Search, Trash2, Edit3, X, Minus, Square, ChevronRight, Settings a
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getContrastColor } from './lib/utils';
 import { getInitialDiaryDate } from './lib/dateUtils';
-import type { DiaryEntry, DiaryListItem, AppSettings, ThemeMode } from './types';
+import type { DiaryEntry, DiaryListItem, AppSettings, ThemeMode, UpdateStatus } from './types';
 import DiaryEditor from './components/DiaryEditor';
 import SettingsModal from './components/SettingsModal';
 
@@ -37,6 +37,12 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>({ themeColor: '#000000', defaultFontSize: 16, fontPreset: 'system', themeMode: 'light', customFonts: [] });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // ──── 版本更新状态 ────
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateBadgeSeen, setUpdateBadgeSeen] = useState(false); // 点击查看后消失
+  const [settingsScrollTo, setSettingsScrollTo] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState('');
+
   // 初始化主题（localStorage 优先，确保页面加载时立即应用，避免闪烁）
   useEffect(() => {
     const stored = localStorage.getItem('themeMode') as ThemeMode | null;
@@ -69,7 +75,69 @@ export default function App() {
     }
   }, []);
 
+  // 监听主进程推送的更新状态
+  useEffect(() => {
+    if (!window.electronAPI?.onUpdateStatus) return;
+    const cleanup = window.electronAPI.onUpdateStatus((data) => {
+      setUpdateStatus({
+        ...data,
+        releaseNotes: stripHtml(data.releaseNotes),
+      } as UpdateStatus);
+      if (data.status === 'available') {
+        setUpdateBadgeSeen(false);
+      }
+    });
+    return cleanup;
+  }, []);
+
+  // 获取应用版本号
+  useEffect(() => {
+    if (!window.electronAPI?.getAppVersion) {
+      setAppVersion('1.0.0');
+      return;
+    }
+    window.electronAPI.getAppVersion().then(v => setAppVersion(v || '1.0.0'));
+  }, []);
+
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // ──── 共享：执行版本检查（自动 + 手动共用）────
+  const stripHtml = (text?: string) => text?.replace(/<[^>]+>/g, '').trim() || '';
+
+  async function performCheck() {
+    if (!window.electronAPI?.checkForUpdates) return;
+    setUpdateStatus({ status: 'checking' });
+    const result = await window.electronAPI.checkForUpdates();
+    if (result.updateAvailable) {
+      setUpdateStatus({
+        status: 'available',
+        version: result.version,
+        releaseNotes: stripHtml(result.releaseNotes),
+        releaseDate: result.releaseDate,
+      });
+      setUpdateBadgeSeen(false);
+    } else {
+      setUpdateStatus({
+        status: 'not-available',
+        error: result.error,
+      });
+    }
+  }
+
+  // 启动时自动检查更新（serverPort 就绪 + settings 已加载 + 未禁用时触发）
+  const autoCheckDoneRef = useRef(false);
+  useEffect(() => {
+    if (!serverPort) return;                          // 等服务端就绪
+    if (!settings || settings.autoUpdateDisabled === true) return;
+    if (!window.electronAPI?.checkForUpdates) return;
+    if (autoCheckDoneRef.current) return;
+    autoCheckDoneRef.current = true;
+    const timer = setTimeout(() => performCheck(), 2500);
+    return () => {
+      clearTimeout(timer);
+      autoCheckDoneRef.current = false;  // StrictMode 重置
+    };
+  }, [serverPort, settings]);
 
   async function fetchDiaries() {
     try {
@@ -336,7 +404,27 @@ export default function App() {
         )}
       >
         <div className="p-6 pb-5 border-b border-white/10 dark:border-white/5 flex items-center justify-between">
-          <h1 className="text-xl tracking-[0.04em] text-text leading-none">Daily</h1>
+          <h1 className="text-xl tracking-[0.04em] text-text leading-none flex items-center gap-2">
+            Daily
+            {updateStatus?.status === 'available' && !updateBadgeSeen && (
+              <button
+                onClick={() => { setIsSettingsOpen(true); setUpdateBadgeSeen(true); setSettingsScrollTo('version'); }}
+                className="text-[11px] font-mono px-2.5 py-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer leading-none font-medium"
+                title="发现新版本，点击查看"
+              >
+                可更新
+              </button>
+            )}
+            {updateStatus?.status === 'downloaded' && (
+              <button
+                onClick={() => { setIsSettingsOpen(true); setSettingsScrollTo('version'); }}
+                className="text-[11px] font-mono px-2.5 py-1.5 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors cursor-pointer leading-none font-medium"
+                title="更新已下载，点击安装"
+              >
+                待安装
+              </button>
+            )}
+          </h1>
           <div className="flex gap-1.5">
             <button
               onClick={toggleTheme}
@@ -425,6 +513,7 @@ export default function App() {
               diary={selectedDiary}
               onUpdate={handleUpdate}
               onPreviewImage={setPreviewImage}
+              downloadProgress={updateStatus?.status === 'downloading' ? updateStatus.progress : undefined}
             />
           ) : (
             <motion.div
@@ -474,6 +563,25 @@ export default function App() {
             settings={settings}
             onClose={() => setIsSettingsOpen(false)}
             onSave={updateSettings}
+            updateStatus={updateStatus}
+            appVersion={appVersion}
+            onCheckUpdate={performCheck}
+            onStartDownload={async () => {
+              if (!window.electronAPI?.startDownload) return;
+              const result = await window.electronAPI.startDownload();
+              if (!result.success) {
+                setUpdateStatus(prev => prev ? { ...prev, error: result.error } : { status: 'error', error: result.error });
+              }
+            }}
+            onInstallUpdate={() => {
+              window.electronAPI?.installUpdate();
+            }}
+            onToggleAutoUpdate={(disabled) => {
+              const newSettings = { ...settings, autoUpdateDisabled: disabled };
+              updateSettings(newSettings);
+            }}
+            scrollTo={settingsScrollTo}
+            onScrolled={() => setSettingsScrollTo(null)}
           />
         )}
       </AnimatePresence>

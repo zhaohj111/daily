@@ -24,5 +24,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getServerPort: () => ipcRenderer.invoke('get-server-port'),
   // 本地字体管理
   listSystemFonts: () => ipcRenderer.invoke('list-system-fonts'),
-  pickFontFile: () => ipcRenderer.invoke('pick-font-file')
+  pickFontFile: () => ipcRenderer.invoke('pick-font-file'),
+  // 版本更新
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  startDownload: () => ipcRenderer.invoke('start-download'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  onUpdateStatus: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
 });

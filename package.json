@@ -2,17 +2,22 @@
   "name": "diary",
   "productName": "Daily",
   "main": "electron-main.cjs",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --sourcemap --outfile=dist/server.cjs",
     "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --sourcemap --outfile=dist/server.cjs",
-    "electron:dev":  "npm run build:server && concurrently \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "npm run build:server && concurrently \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder"
   },
   "build": {
     "appId": "com.daily.diary",
     "productName": "Daily",
+    "publish": [{
+      "provider": "github",
+      "owner": "zhaohj111",
+      "repo": "daily"
+    }],
     "files": [
       "dist/**/*",
       "electron-main.cjs",
@@ -29,18 +34,19 @@
       "output": "release"
     },
     "win": {
-      "target": "nsis",        
+      "target": "nsis",
       "signAndEditExecutable": true,
-      "icon": "./icon.ico"
+      "icon": "./icon.ico",
+      "artifactName": "${productName}-Setup-${version}-win32-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
     },
-
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "artifactName": "${productName}-${version}-darwin-${arch}.${ext}"
     }
   },
   "dependencies": {
@@ -50,6 +56,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "electron-updater": "^6.8.9",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",

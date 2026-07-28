@@ -20,6 +20,18 @@ export interface AppSettings {
   fontPreset: string;
   themeMode: ThemeMode;
   customFonts: CustomFont[];
+  autoUpdateDisabled?: boolean;
+}
+
+/** 更新状态 */
+export interface UpdateStatus {
+  status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  releaseNotes?: string;
+  releaseDate?: string;
+  progress?: number;        // 0-100
+  downloadedFile?: string;
+  error?: string;
 }
 
 export interface Comment {

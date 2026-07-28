@@ -3,10 +3,60 @@ const path = require('path');
 const fs = require('fs');
 const { fork, spawn, execSync } = require('child_process');
 const net = require('net');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let serverProcess;
 let serverPort = 0;
+
+// ══════════════════════════════════════
+//  自动更新配置
+// ══════════════════════════════════════
+autoUpdater.autoDownload = false;         // 手动控制下载时机
+autoUpdater.autoInstallOnAppQuit = true;  // 退出时自动安装
+autoUpdater.forceDevUpdateConfig = true;  // 允许开发模式下检查更新
+
+// 转发 autoUpdater 事件到渲染进程
+function forwardUpdateStatus(data) {
+  sendToRenderer('update-status', data);
+}
+
+autoUpdater.on('checking-for-update', () => {
+  forwardUpdateStatus({ status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  const notes = typeof info.releaseNotes === 'string' ? info.releaseNotes : (Array.isArray(info.releaseNotes) ? info.releaseNotes.map(n => (typeof n === 'string' ? n : n.note || n.label || '')).filter(Boolean).join('\n') : '');
+  forwardUpdateStatus({
+    status: 'available',
+    version: info.version,
+    releaseNotes: notes.replace(/<[^>]+>/g, '').trim(),
+    releaseDate: info.releaseDate,
+  });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  forwardUpdateStatus({ status: 'not-available', version: info.version });
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  forwardUpdateStatus({
+    status: 'downloading',
+    progress: Math.floor(progress.percent),
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  forwardUpdateStatus({
+    status: 'downloaded',
+    version: info.version,
+    downloadedFile: info.downloadedFile,
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  forwardUpdateStatus({ status: 'error', error: err.message || String(err) });
+});
 
 // ──── 查找空闲端口 ────
 function findFreePort() {
@@ -216,6 +266,42 @@ function setupIPC() {
     } catch (err) {
       return { error: err.message };
     }
+  });
+
+  // ══════════════════════════════════════
+  //  版本更新 IPC
+  // ══════════════════════════════════════
+
+  ipcMain.handle('get-app-version', () => app.getVersion());
+
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      const info = result?.updateInfo;
+      const notes = typeof info.releaseNotes === 'string' ? info.releaseNotes : (Array.isArray(info.releaseNotes) ? info.releaseNotes.map(n => (typeof n === 'string' ? n : n.note || '')).filter(Boolean).join('\n') : '');
+      return {
+        updateAvailable: true,
+        version: info.version,
+        releaseNotes: notes.replace(/<[^>]+>/g, '').trim(),
+        releaseDate: info.releaseDate,
+      };
+    } catch (err) {
+      // checkForUpdates throws when no update is available
+      return { updateAvailable: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('start-download', async () => {
+    try {
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('install-update', () => {
+    autoUpdater.quitAndInstall();
   });
 }
 

@@ -24,7 +24,8 @@ async function initData() {
       defaultFontSize: 16,
       fontPreset: 'system',
       themeMode: 'light',
-      customFonts: []
+      customFonts: [],
+      autoUpdateDisabled: false
     }));
   }
 }

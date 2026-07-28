@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Edit3, Trash2, X, Type, Image as ImageIcon, MessageSquare, Send } from 'lucide-react';
+import { Plus, Edit3, Trash2, X, Type, Image as ImageIcon, MessageSquare, Send, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { DiaryEntry, Tag, Comment } from '../types';
 
@@ -9,9 +9,10 @@ interface DiaryEditorProps {
   onUpdate: (d: DiaryEntry) => void | Promise<void>;
   onPreviewImage: (url: string) => void;
   key?: number;
+  downloadProgress?: number;  // 更新下载进度 0-100
 }
 
-export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEditorProps) {
+export default function DiaryEditor({ diary, onUpdate, onPreviewImage, downloadProgress }: DiaryEditorProps) {
   const [content, setContent] = useState(diary.content);
   const [fontSize, setFontSize] = useState(diary.fontSize || 16);
   const [tags, setTags] = useState<Tag[]>(diary.tags);
@@ -362,9 +363,34 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage }: DiaryEd
         </div>
       </div>
 
-      <div className="mt-10 pt-8 border-t border-border-subtle flex justify-between items-center text-xs font-mono text-text-muted uppercase tracking-widest">
-        <span>Daily / {diary.id}</span>
-        <span className="font-medium text-text-secondary">{content.length} words</span>
+      <div className="mt-10 pt-8 border-t border-border-subtle">
+        <div className="flex justify-between items-center text-xs font-mono text-text-muted uppercase tracking-widest">
+          <span>Daily / {diary.id}</span>
+          <span className="font-medium text-text-secondary">{content.length} words</span>
+        </div>
+
+        {/* 更新下载进度条 */}
+        {downloadProgress !== undefined && downloadProgress >= 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mt-3 overflow-hidden"
+          >
+            <div className="flex items-center gap-3">
+              <Download size={12} className="text-accent animate-pulse shrink-0" />
+              <div className="flex-1 h-1.5 bg-surface-active rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-accent rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(downloadProgress, 100)}%` }}
+                  transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+                />
+              </div>
+              <span className="text-[10px] font-mono text-text-muted shrink-0">{Math.floor(downloadProgress)}%</span>
+            </div>
+            <p className="text-[10px] text-text-muted/60 mt-1.5 ml-5">正在下载更新...</p>
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );

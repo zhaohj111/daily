@@ -17,6 +17,12 @@ declare global {
       // 本地字体管理
       listSystemFonts: () => Promise<{ fonts: SystemFontInfo[]; source?: string; error?: string }>;
       pickFontFile: () => Promise<FontImportResult | null>;
+      // 版本更新
+      getAppVersion: () => Promise<string>;
+      checkForUpdates: () => Promise<{ updateAvailable: boolean; version?: string; releaseNotes?: string; releaseDate?: string; error?: string }>;
+      startDownload: () => Promise<{ success: boolean; error?: string }>;
+      installUpdate: () => void;
+      onUpdateStatus: (callback: (status: { status: string; version?: string; releaseNotes?: string; releaseDate?: string; progress?: number; error?: string }) => void) => () => void;
     };
   }
 }

@@ -1,13 +1,22 @@
-import { useState, useEffect } from 'react';
-import { Palette, Type, X, HardDrive, FolderOpen, AlertCircle, CheckCircle2, Loader2, Upload, Search, Trash2, ArrowLeft, Monitor, Plus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Palette, Type, X, HardDrive, FolderOpen, AlertCircle, CheckCircle2, Loader2, Upload, Search, Trash2, ArrowLeft, Monitor, Plus, RefreshCw, Download, RotateCcw, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import type { AppSettings, CustomFont } from '../types';
+import type { AppSettings, CustomFont, UpdateStatus } from '../types';
 
 interface SettingsModalProps {
   settings: AppSettings;
   onClose: () => void;
   onSave: (s: AppSettings) => void;
+  // 版本更新
+  updateStatus: UpdateStatus | null;
+  appVersion: string;
+  onCheckUpdate: () => void;
+  onStartDownload: () => void;
+  onInstallUpdate: () => void;
+  onToggleAutoUpdate: (disabled: boolean) => void;
+  scrollTo?: string | null;
+  onScrolled?: () => void;
 }
 
 interface SystemFontInfo {
@@ -18,7 +27,7 @@ interface SystemFontInfo {
   source: 'system' | 'imported';
 }
 
-export default function SettingsModal({ settings, onClose, onSave }: SettingsModalProps) {
+export default function SettingsModal({ settings, onClose, onSave, updateStatus, appVersion, onCheckUpdate, onStartDownload, onInstallUpdate, onToggleAutoUpdate, scrollTo, onScrolled }: SettingsModalProps) {
   const [themeColor, setThemeColor] = useState(settings.themeColor);
   const [defaultFontSize, setDefaultFontSize] = useState(settings.defaultFontSize);
   const [fontPreset, setFontPreset] = useState(settings.fontPreset || 'system');
@@ -38,6 +47,15 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
   const [fontSearch, setFontSearch] = useState('');
   const [importingFont, setImportingFont] = useState<string | null>(null);
   const [fontImportError, setFontImportError] = useState('');
+  const versionSectionRef = useRef<HTMLDivElement>(null);
+
+  // 点击标签跳转到版本更新区域
+  useEffect(() => {
+    if (scrollTo === 'version' && versionSectionRef.current) {
+      versionSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      onScrolled?.();
+    }
+  }, [scrollTo, onScrolled]);
 
   useEffect(() => {
     if (!window.electronAPI?.getServerPort) return;
@@ -297,7 +315,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
+                      <div className="rounded-2xl border border-border overflow-hidden">
                         {/* 搜索栏 */}
                         <div className="p-3 border-b border-border flex items-center gap-2">
                           <button
@@ -365,7 +383,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
               <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
                 <Type size={12} className="shrink-0" /> 默认字体大小
               </label>
-              <div className="flex items-center gap-6 bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
+              <div className="flex items-center gap-6 rounded-2xl p-4 border border-border">
                 <input
                   type="range" min="12" max="48"
                   value={defaultFontSize}
@@ -383,7 +401,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
               </label>
               <div className="space-y-3">
                 {/* 当前数据路径 */}
-                <div className="bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
+                <div className="rounded-2xl p-4 border border-border">
                   <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-1">当前数据目录</div>
                   <div className="text-xs font-mono text-text-secondary break-all">{dataPath || '加载中...'}</div>
                 </div>
@@ -407,7 +425,7 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
 
                 {/* 目标路径 */}
                 {targetPath && (
-                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-black/5 dark:ring-white/5">
+                  <div className="rounded-2xl p-4 border border-border">
                     <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-1">目标目录</div>
                     <div className="text-xs font-mono text-text-secondary break-all">{targetPath}</div>
                   </div>
@@ -472,6 +490,204 @@ export default function SettingsModal({ settings, onClose, onSave }: SettingsMod
                 )}
               </div>
             </div>
+
+            {/* ──── 版本更新 ──── */}
+            <motion.div layout ref={versionSectionRef}>
+              <label className="text-xs font-mono text-text-muted uppercase tracking-widest leading-none mb-3 flex items-center gap-1.5">
+                <Info size={12} className="shrink-0" /> 版本更新
+              </label>
+              <div className="space-y-3">
+                {/* 当前版本 + 检查按钮 + 结果 */}
+                <div className="rounded-2xl p-4 border border-border flex items-center justify-between gap-3">
+                  <div className="shrink-0">
+                    <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-0.5">当前版本</div>
+                    <div className="text-sm font-mono text-text font-medium">v{appVersion || '1.0.0'}</div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* 检查结果 — 靠右紧贴按钮 */}
+                    <AnimatePresence mode="wait">
+                      {updateStatus?.status === 'not-available' && (
+                        <motion.div
+                          key="not-avail"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-1 text-[11px] text-text-muted font-mono"
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>已是最新版本</span>
+                        </motion.div>
+                      )}
+                      {updateStatus?.status === 'available' && (
+                        <motion.div
+                          key="available"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-1 text-[11px] text-accent font-medium font-mono"
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>发现新版本 v{updateStatus.version}</span>
+                        </motion.div>
+                      )}
+                      {updateStatus?.status === 'downloaded' && (
+                        <motion.div
+                          key="downloaded-inline"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400 font-mono"
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>可安装</span>
+                        </motion.div>
+                      )}
+                      {updateStatus?.status === 'error' && (
+                        <motion.div
+                          key="error-inline"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-1 text-[11px] text-red-500 font-mono"
+                        >
+                          <AlertCircle size={11} />
+                          <span>检查错误，请稍后再试</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <button
+                      onClick={onCheckUpdate}
+                      disabled={updateStatus?.status === 'checking' || updateStatus?.status === 'downloading'}
+                      className="shrink-0 py-2 px-4 rounded-2xl border border-border hover:border-accent/30 hover:bg-accent/5 transition-all duration-200 flex items-center gap-1.5 text-xs font-medium text-text-secondary disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {updateStatus?.status === 'checking' ? (
+                        <><Loader2 size={13} className="animate-spin" /> 检查中...</>
+                      ) : (
+                        <><RefreshCw size={13} /> 检查更新</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 自动更新开关 */}
+                <div className="rounded-2xl p-4 border border-border flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-medium text-text">自动检查更新</div>
+                    <div className="text-[10px] font-mono text-text-muted mt-0.5">启动时自动检查新版本</div>
+                  </div>
+                  <button
+                    onClick={() => onToggleAutoUpdate(!settings.autoUpdateDisabled)}
+                    className={cn(
+                      "relative w-10 h-6 rounded-full transition-colors duration-300",
+                      settings.autoUpdateDisabled
+                        ? "bg-surface-active"
+                        : "bg-accent"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300",
+                        settings.autoUpdateDisabled ? "left-0.5" : "left-[1.125rem]"
+                      )}
+                    />
+                  </button>
+                </div>
+
+                {/* 更新可用 — 详情展开 */}
+                <AnimatePresence>
+                  {updateStatus?.status === 'available' && (
+                    <motion.div
+                      key="available-detail"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-2xl p-4 border border-border space-y-3">
+                        {updateStatus.releaseNotes && (
+                          <div className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto custom-scrollbar bg-white/20 dark:bg-white/5 rounded-xl p-3">
+                            {updateStatus.releaseNotes}
+                          </div>
+                        )}
+                        {updateStatus.releaseDate && (
+                          <div className="text-[10px] font-mono text-text-muted">
+                            发布于 {new Date(updateStatus.releaseDate).toLocaleDateString('zh-CN')}
+                          </div>
+                        )}
+                        <button
+                          onClick={onStartDownload}
+                          className="w-full py-2.5 rounded-xl border border-border hover:border-accent/30 hover:bg-accent/5 transition-all duration-200 flex items-center justify-center gap-2 text-sm font-medium text-text-secondary"
+                        >
+                          <Download size={15} /> 下载更新
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 下载中 — 进度条 */}
+                <AnimatePresence>
+                  {updateStatus?.status === 'downloading' && (
+                    <motion.div
+                      key="downloading-detail"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-2xl p-4 border border-border space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-mono text-text-muted flex items-center gap-1.5">
+                            <Download size={12} className="animate-pulse" /> 下载进度
+                          </span>
+                          <span className="font-mono text-text-secondary font-medium">{Math.floor(updateStatus.progress || 0)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-surface-active rounded-full overflow-hidden">
+                          <motion.div
+                            className="h-full bg-accent rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min(updateStatus.progress || 0, 100)}%` }}
+                            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 下载完成 */}
+                <AnimatePresence>
+                  {updateStatus?.status === 'downloaded' && (
+                    <motion.div
+                      key="downloaded-detail"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-2xl p-4 border border-border space-y-3">
+                        <p className="text-xs text-text-secondary">重启应用后将自动安装更新</p>
+                        <button
+                          onClick={onInstallUpdate}
+                          className="w-full py-2.5 rounded-xl border border-green-500/30 bg-green-500/10 backdrop-blur-sm hover:bg-green-500/20 transition-all duration-200 flex items-center justify-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
+                        >
+                          <RotateCcw size={15} /> 重启安装
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
           </div>
 
           {/* 固定底部按钮 */}
