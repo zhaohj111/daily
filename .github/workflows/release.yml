@@ -1,0 +1,68 @@
+name: Release
+
+# 打标签即发布：推送 v* 标签（如 v1.0.2）时自动编译打包，
+# 并将标签版本号同步写入 package.json（应用内版本号来源）。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 编译打包并发布
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 从标签同步版本号到 package.json
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "标签格式不正确: $env:GITHUB_REF_NAME（期望形如 v1.2.3）"
+          }
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          $pkg.version = $version
+          $pkg | ConvertTo-Json -Depth 20 | Set-Content package.json -Encoding utf8
+          Write-Host "✅ package.json version -> $version"
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 编译并打包（vite + esbuild + electron-builder）
+        # --publish never：只本地打包，不自动上传 GitHub Release（否则会与下方
+        # softprops/action-gh-release 重复创建 Release 导致失败）；latest.yml /
+        # blockmap 仍会正常生成，由下方步骤一并上传
+        run: npm run electron:build -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: 校验产物
+        shell: pwsh
+        run: |
+          $artifacts = Get-ChildItem release -File | Select-Object -ExpandProperty Name
+          if (-not $artifacts) { throw 'release 目录为空，打包失败' }
+          Write-Host "📦 产物列表:"
+          $artifacts | ForEach-Object { Write-Host "  - $_" }
+
+      - name: 上传安装包并创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # electron-updater 通过 latest.yml 定位安装包，必须一并上传
+          files: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+          # 由 GitHub 根据提交/PR 自动生成 Markdown 更新说明
+          generate_release_notes: true

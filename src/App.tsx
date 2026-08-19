@@ -189,7 +189,7 @@ export default function App() {
     // 检查是否为自定义字体
     const customFont = (settings.customFonts || []).find(f => f.id === preset);
     if (customFont) {
-      document.documentElement.style.setProperty('--font-editor', `"${customFont.family}", serif`);
+      document.documentElement.style.setProperty('--font-editor', `"Noto Color Emoji", "${customFont.family}", serif`);
     } else {
       // 使用预设 CSS 类
       document.documentElement.className += ` font-${preset}`;

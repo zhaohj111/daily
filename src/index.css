@@ -1,6 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,700&display=swap');
 @import "tailwindcss";
 
+/* ─── Noto Color Emoji（Google 官方字体，OFL 许可，随应用打包） ───
+   官方 NotoColorEmoji.ttf（v2.051，COLRv1 彩色字体，约 24MB）：
+   用于正文、左侧预览和评论中已存在 emoji 的字体渲染（表情面板已用雪碧图图片）。
+   unicode-range 限定为 emoji 码点，普通文本/符号不会命中该字体，
+   避免影响全局 UI 样式。 */
+@font-face {
+  font-family: "Noto Color Emoji";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('./assets/fonts/NotoColorEmoji.ttf') format('truetype');
+  unicode-range: U+1f1e6-1f1ff, U+200d, U+203c, U+2049, U+20e3, U+2122, U+2139, U+2194-2199, U+21a9-21aa, U+23cf, U+23e9-23ef, U+23f8-23fa, U+24c2, U+25aa-25ab, U+25b6, U+25c0, U+25fb-25fe, U+2611, U+2614-2615, U+2618, U+261d, U+2620, U+2622-2623, U+2626, U+262a, U+262e-262f, U+2638, U+2639-263a, U+2640, U+2642, U+2648-2653, U+265f, U+2660, U+2663, U+2665-2666, U+2668, U+267b, U+267e-267f, U+2692, U+2693, U+2694, U+2695-2697, U+2699, U+269b-269c, U+26a0-26a1, U+26a7, U+26aa-26ab, U+26b0-26b1, U+26bd-26be, U+26c4-26c5, U+26c8, U+26ce, U+26cf, U+26d1, U+26d3-26d4, U+26e9-26ea, U+26f0-26f5, U+26f7-26fa, U+26fd, U+2702, U+2705, U+2708-270d, U+270f, U+2712, U+2714, U+2716, U+271d, U+2721, U+2728, U+2733-2734, U+2744, U+2747, U+274c, U+274e, U+2753-2755, U+2757, U+2763-2764, U+2795-2797, U+27a1, U+27b0, U+27bf, U+2934-2935, U+2b05-2b07, U+2b1b-2b1c, U+2b50, U+2b55, U+3030, U+303d, U+3297, U+3299, U+fe0f, U+1f004, U+1f0cf, U+1f170-1f171, U+1f17e-1f17f, U+1f18e, U+1f191-1f19a, U+1f201-1f202, U+1f21a, U+1f22f, U+1f232-1f23a, U+1f250-1f251, U+1f300-1f321, U+1f324-1f393, U+1f396-1f397, U+1f399-1f39b, U+1f39e-1f3f0, U+1f3f3-1f3f5, U+1f3f7-1f4fd, U+1f4ff-1f53d, U+1f549-1f54e, U+1f550-1f567, U+1f56f-1f570, U+1f573-1f579, U+1f57a, U+1f587, U+1f58a-1f58d, U+1f590, U+1f595-1f596, U+1f5a4-1f5a5, U+1f5a8, U+1f5b1-1f5b2, U+1f5bc, U+1f5c2-1f5c4, U+1f5d1-1f5d3, U+1f5dc-1f5de, U+1f5e1, U+1f5e3, U+1f5e8, U+1f5ef, U+1f5f3, U+1f5fa-1f64f, U+1f680-1f6a9, U+1f6ab-1f6b6, U+1f6b7-1f6bc, U+1f6be, U+1f6c0-1f6c5, U+1f6cb-1f6d2, U+1f6d5-1f6d8, U+1f6dc-1f6df, U+1f6e0-1f6e5, U+1f6e9, U+1f6eb-1f6ec, U+1f6f0, U+1f6f3-1f6f9, U+1f6fa-1f6fc, U+1f7e0-1f7eb, U+1f7f0, U+1f90c-1f93f, U+1f940-1f9ff, U+1fa70-1fa7c, U+1fa80-1fa88, U+1fa8e-1fa95, U+1fa96-1faa8, U+1faa9-1fadf, U+1fae0-1fae8, U+1faf0-1faf8, U+e0020-e007f;
+}
+
 /* ─── Tailwind v4 深色模式变体（class 策略） ─── */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -75,19 +89,20 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
-  /* ─── 字体预设 ─── */
+  /* ─── 字体预设（Noto Color Emoji 优先，保证正文/预览 emoji 为 Google 风格） ─── */
   .font-system {
-    --font-editor: "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-editor: "Noto Color Emoji", "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   }
   .font-serif-cn {
-    --font-editor: "Noto Serif SC", "Songti SC", "SimSun", "PMingLiU", "Times New Roman", serif;
+    --font-editor: "Noto Color Emoji", "Noto Serif SC", "Songti SC", "SimSun", "PMingLiU", "Times New Roman", serif;
   }
   .font-kaiti {
-    --font-editor: "KaiTi", "STKaiti", "AR PL UKai CN", "TW-MOE-Kai", "Noto Serif SC", serif;
+    --font-editor: "Noto Color Emoji", "KaiTi", "STKaiti", "AR PL UKai CN", "TW-MOE-Kai", "Noto Serif SC", serif;
   }
   .font-heiti {
-    --font-editor: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Inter", system-ui, sans-serif;
+    --font-editor: "Noto Color Emoji", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Inter", system-ui, sans-serif;
   }
+
 }
 
 /* ═══════════════════════════════════════════
@@ -184,6 +199,28 @@ body {
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* ═══════════════════════════════════════════
+   emoji-mart 表情选择器主题
+   （CSS 变量从宿主元素穿透 Shadow DOM）
+   ═══════════════════════════════════════════ */
+.emoji-mart-host {
+  --rgb-background: 255, 255, 255;
+  --rgb-color: 41, 37, 36;
+  --rgb-input: 250, 250, 249;
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-over: rgba(0, 0, 0, 0.1);
+  --border-radius: 16px;
+  /* 表情优先用 Noto Color Emoji 渲染（无表情字形时自动回退系统字体） */
+  --font-family: "Noto Color Emoji", "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.dark .emoji-mart-host {
+  --rgb-background: 45, 45, 48;
+  --rgb-color: 228, 228, 231;
+  --rgb-input: 36, 36, 39;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-over: rgba(255, 255, 255, 0.16);
 }
 
 /* ─── 主题切换过渡动画 ─── */

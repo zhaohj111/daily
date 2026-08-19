@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Palette, Type, X, HardDrive, FolderOpen, AlertCircle, CheckCircle2, Loader2, Upload, Search, Trash2, ArrowLeft, Monitor, Plus, RefreshCw, Download, RotateCcw, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { cn } from '../lib/utils';
 import type { AppSettings, CustomFont, UpdateStatus } from '../types';
 
@@ -612,8 +614,48 @@ export default function SettingsModal({ settings, onClose, onSave, updateStatus,
                     >
                       <div className="rounded-2xl p-4 border border-border space-y-3">
                         {updateStatus.releaseNotes && (
-                          <div className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto custom-scrollbar bg-white/20 dark:bg-white/5 rounded-xl p-3">
-                            {updateStatus.releaseNotes}
+                          <div className="text-xs text-text-secondary leading-relaxed max-h-40 overflow-y-auto custom-scrollbar bg-white/20 dark:bg-white/5 rounded-xl p-3">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({ children }) => <h1 className="text-sm font-semibold text-text mt-1.5 mb-1 first:mt-0">{children}</h1>,
+                                h2: ({ children }) => <h2 className="text-sm font-semibold text-text mt-2 mb-1 first:mt-0">{children}</h2>,
+                                h3: ({ children }) => <h3 className="text-[13px] font-semibold text-text mt-1.5 mb-1 first:mt-0">{children}</h3>,
+                                h4: ({ children }) => <h4 className="text-xs font-semibold text-text mt-1.5 mb-1 first:mt-0">{children}</h4>,
+                                p: ({ children }) => <p className="my-1.5 first:mt-0 last:mb-0">{children}</p>,
+                                ul: ({ children }) => <ul className="list-disc pl-4 my-1.5 space-y-0.5">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal pl-4 my-1.5 space-y-0.5">{children}</ol>,
+                                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                                a: ({ children, href }) => (
+                                  <a href={href} target="_blank" rel="noreferrer" className="text-accent underline decoration-accent/30 underline-offset-2">
+                                    {children}
+                                  </a>
+                                ),
+                                code: ({ children }) => (
+                                  <code className="font-mono text-[10.5px] bg-surface-active/70 dark:bg-white/10 rounded px-1 py-px">{children}</code>
+                                ),
+                                pre: ({ children }) => (
+                                  <pre className="bg-black/5 dark:bg-white/5 rounded-lg p-2.5 my-2 overflow-x-auto">{children}</pre>
+                                ),
+                                blockquote: ({ children }) => (
+                                  <blockquote className="border-l-2 border-border pl-2.5 my-1.5 text-text-muted italic">{children}</blockquote>
+                                ),
+                                hr: () => <hr className="my-2.5 border-border" />,
+                                strong: ({ children }) => <strong className="font-semibold text-text">{children}</strong>,
+                                em: ({ children }) => <em className="italic">{children}</em>,
+                                del: ({ children }) => <del className="line-through opacity-60">{children}</del>,
+                                input: (props) => <input {...props} className="accent-accent mr-1" />,
+                                table: ({ children }) => (
+                                  <div className="overflow-x-auto my-2">
+                                    <table className="w-full text-left border-collapse">{children}</table>
+                                  </div>
+                                ),
+                                th: ({ children }) => <th className="border border-border px-2 py-1 font-semibold text-text">{children}</th>,
+                                td: ({ children }) => <td className="border border-border px-2 py-1">{children}</td>,
+                              }}
+                            >
+                              {updateStatus.releaseNotes}
+                            </ReactMarkdown>
                           </div>
                         )}
                         {updateStatus.releaseDate && (

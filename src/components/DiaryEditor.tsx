@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Edit3, Trash2, X, Type, Image as ImageIcon, MessageSquare, Send, Download } from 'lucide-react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Plus, Edit3, Trash2, X, Type, Image as ImageIcon, MessageSquare, Send, Download, Smile } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '../lib/utils';
+import EmojiMartPicker from './EmojiMartPicker';
 import type { DiaryEntry, Tag, Comment } from '../types';
 
 // ──── DiaryEditor 组件 Props ────
@@ -23,8 +25,10 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage, downloadP
   const [editCommentContent, setEditCommentContent] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagLabel, setNewTagLabel] = useState('');
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingCursor = useRef<number | null>(null);
+  const emojiPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setContent(diary.content);
@@ -106,6 +110,56 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage, downloadP
       pendingCursor.current = null;
     }
   }, [content]);
+
+  // ──── 表情面板失焦自动关闭 ────
+  // 点击面板外部、按 Escape、或窗口失焦时关闭；
+  // 点击面板内表情可连续插入、不关闭（emoji 按钮点击命中面板内部）。
+  useEffect(() => {
+    if (!emojiOpen) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (emojiPanelRef.current && !emojiPanelRef.current.contains(e.target as Node)) {
+        setEmojiOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEmojiOpen(false);
+    };
+    const handleWindowBlur = () => setEmojiOpen(false);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [emojiOpen]);
+
+  // 在光标处插入表情（未聚焦且无历史光标时追加到末尾）
+  const insertEmoji = (emoji: string) => {
+    const ta = textareaRef.current;
+    const hasSelection = !!ta && (ta.selectionStart ?? 0) > 0;
+    const pos = ta && (document.activeElement === ta || hasSelection)
+      ? (ta.selectionStart ?? content.length)
+      : content.length;
+    const newVal = content.slice(0, pos) + emoji + content.slice(pos);
+    pendingCursor.current = pos + emoji.length;
+    setContent(newVal);
+    // 保持面板打开，允许连续插入多个表情
+    ta?.focus();
+  };
+
+  // 表情面板主题（跟随应用深色模式）
+  const isDarkTheme = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
+  // 应用强调色 → "r, g, b"（emoji-mart 的 --rgb-accent 变量，穿透 Shadow DOM）
+  const accentRgb = useMemo(() => {
+    const hex = (getComputedStyle(document.documentElement).getPropertyValue('--color-accent') || '').trim() || '#000000';
+    const m = hex.match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return '0, 0, 0';
+    const n = parseInt(m[1], 16);
+    return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  }, [emojiOpen]);
 
   const addCustomTag = () => {
     if (!newTagLabel.trim()) {
@@ -238,7 +292,42 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage, downloadP
           <p className="text-[10px] font-mono text-text-placeholder/70 uppercase tracking-[0.2em] mt-2 ml-0.5">Edited {new Date(diary.updatedAt).toLocaleTimeString()}</p>
         </div>
 
-        <div className="group/toolbar flex items-center gap-2.5 p-2 rounded-2xl transition-all duration-300 hover:bg-white/25 dark:hover:bg-white/5 hover:ring-1 hover:ring-black/5 dark:hover:ring-white/5">
+        <div className="group/toolbar relative flex items-center gap-2.5 p-2 rounded-2xl transition-all duration-300 hover:bg-white/25 dark:hover:bg-white/5 hover:ring-1 hover:ring-black/5 dark:hover:ring-white/5">
+          {/* ──── 表情选择入口（字体调节左侧） ──── */}
+          <span className="relative no-drag" ref={emojiPanelRef}>
+            <button
+              onClick={() => setEmojiOpen(o => !o)}
+              title="插入表情"
+              className={cn(
+                "p-1.5 rounded-xl transition-all duration-200 -ml-1",
+                emojiOpen
+                  ? "bg-accent/10 text-accent"
+                  : "text-text-muted/50 hover:text-text-muted group-hover/toolbar:text-text-muted"
+              )}
+            >
+              <Smile size={15} />
+            </button>
+
+            {/* 352px = emoji-mart 9列×36px + 12px内边距 + 16px滚动条，恰好撑满弹层，无白边 */}
+              <AnimatePresence>
+              {emojiOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="absolute right-0 top-full mt-2 z-50 w-[352px] rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-[#2d2d30] overflow-hidden origin-top-right"
+                >
+                  <EmojiMartPicker
+                    theme={isDarkTheme ? 'dark' : 'light'}
+                    accentRgb={accentRgb}
+                    onEmojiSelect={insertEmoji}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </span>
+
           <Type size={14} className="text-text-muted/50 ml-1 transition-colors duration-300 group-hover/toolbar:text-text-muted" />
           <input
             type="range" min="12" max="48"

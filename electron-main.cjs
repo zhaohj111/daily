@@ -5,6 +5,16 @@ const { fork, spawn, execSync } = require('child_process');
 const net = require('net');
 const { autoUpdater } = require('electron-updater');
 
+// ══════════════════════════════════════
+//  字体渲染兼容（必须在窗口创建前设置）
+//  Noto Color Emoji 是 COLRv1 彩色字体，部分 Windows GPU 驱动下
+//  GPU 光栅化无法渲染 COLRv1，Chromium 会回退到系统 emoji 字体
+// （Segoe UI Emoji）。禁用硬件加速、强制全软件渲染后，
+// 字体（含 COLRv1）走 CPU 光栅化，正文中的 emoji 也能用 Noto 渲染。
+// 日记应用界面轻量，软件渲染性能无感知影响。
+// ══════════════════════════════════════
+app.disableHardwareAcceleration();
+
 let mainWindow;
 let serverProcess;
 let serverPort = 0;
