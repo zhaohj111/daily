@@ -31,6 +31,17 @@ function forwardUpdateStatus(data) {
   sendToRenderer('update-status', data);
 }
 
+// 整理更新说明：去掉 HTML 标签，并移除 GitHub 自动生成说明（generate_release_notes）
+// 时无条件追加的 "**Full Changelog**: https://github.com/.../compare/v1.0.1...v1.1.0"
+// 脚注，弹窗里只显示真正的内容。
+function cleanReleaseNotes(notes) {
+  return notes
+    .replace(/<[^>]+>/g, '')
+    .replace(/^[ \t]*\**Full Changelog\**[ \t]*[:：].*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 autoUpdater.on('checking-for-update', () => {
   forwardUpdateStatus({ status: 'checking' });
 });
@@ -40,7 +51,7 @@ autoUpdater.on('update-available', (info) => {
   forwardUpdateStatus({
     status: 'available',
     version: info.version,
-    releaseNotes: notes.replace(/<[^>]+>/g, '').trim(),
+    releaseNotes: cleanReleaseNotes(notes),
     releaseDate: info.releaseDate,
   });
 });
@@ -292,7 +303,7 @@ function setupIPC() {
       return {
         updateAvailable: true,
         version: info.version,
-        releaseNotes: notes.replace(/<[^>]+>/g, '').trim(),
+        releaseNotes: cleanReleaseNotes(notes),
         releaseDate: info.releaseDate,
       };
     } catch (err) {
