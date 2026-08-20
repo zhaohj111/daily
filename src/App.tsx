@@ -87,7 +87,8 @@ export default function App() {
       setUpdateStatus({
         ...data,
         status,
-        releaseNotes: stripHtml(data.releaseNotes),
+        // 说明已由主进程整理：优先是 GitHub release 的原始 Markdown（由
+        // 设置面板的 ReactMarkdown 排版），失败时兜底为纯文本
       } as UpdateStatus);
       if (status === 'available') {
         setUpdateBadgeSeen(false);
@@ -108,8 +109,6 @@ export default function App() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // ──── 共享：执行版本检查（自动 + 手动共用）────
-  const stripHtml = (text?: string) => text?.replace(/<[^>]+>/g, '').trim() || '';
-
   async function performCheck() {
     if (!window.electronAPI?.checkForUpdates) return;
     setUpdateStatus({ status: 'checking' });
@@ -120,7 +119,8 @@ export default function App() {
       setUpdateStatus({
         status: 'available',
         version: result.version,
-        releaseNotes: stripHtml(result.releaseNotes),
+        // 主进程返回的是 GitHub release 原始 Markdown，直接交给 ReactMarkdown
+        releaseNotes: result.releaseNotes,
         releaseDate: result.releaseDate,
       });
       setUpdateBadgeSeen(false);

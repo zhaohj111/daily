@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { fork, spawn, execSync } = require('child_process');
 const net = require('net');
 const { autoUpdater } = require('electron-updater');
@@ -33,7 +34,7 @@ function forwardUpdateStatus(data) {
 
 // 整理更新说明：去掉 HTML 标签，并移除 GitHub 自动生成说明（generate_release_notes）
 // 时无条件追加的 "**Full Changelog**: https://github.com/.../compare/v1.0.1...v1.1.0"
-// 脚注，弹窗里只显示真正的内容。
+// 脚注，弹窗里只显示真正的内容。（仅作为兜底路径使用，见 prepareUpdateNotes）
 function cleanReleaseNotes(notes) {
   return notes
     .replace(/<[^>]+>/g, '')
@@ -42,16 +43,92 @@ function cleanReleaseNotes(notes) {
     .trim();
 }
 
+// 整理 Markdown 更新说明：只移除 Full Changelog 脚注并折叠多余空行，
+// 保留 Markdown 语法（# 标题 / - 列表 / **加粗** 等），交给渲染进程的
+// ReactMarkdown 排版。
+function cleanMarkdownNotes(notes) {
+  return notes
+    .replace(/^[ \t]*\**Full Changelog\**[ \t]*[:：].*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// 从 app-update.yml / dev-app-update.yml 读取 GitHub 仓库（与自动更新配置一致）
+function getUpdateFeedRepo() {
+  for (const f of ['app-update.yml', 'dev-app-update.yml']) {
+    try {
+      const raw = fs.readFileSync(path.join(__dirname, f), 'utf-8');
+      const owner = /^owner\s*:\s*([^\s#]+)/m.exec(raw)?.[1];
+      const repo = /^repo\s*:\s*([^\s#]+)/m.exec(raw)?.[1];
+      if (owner && repo) return { owner, repo };
+    } catch {}
+  }
+  return null;
+}
+
+// 从 GitHub API 拉取指定版本的原始 Markdown 更新说明（release.body）。
+// electron-updater 的 GitHub provider 返回的是 Atom feed 里渲染好的 HTML，
+// 剥掉标签后只剩纯文本，Markdown 结构全丢；这里直接取 body（原始 Markdown），
+// 设置面板里的 ReactMarkdown 才能正常排版。失败时返回 null，由调用方兜底。
+function fetchGitHubReleaseBody(version) {
+  const repo = getUpdateFeedRepo();
+  if (!repo || !version) return Promise.resolve(null);
+  const url = `https://api.github.com/repos/${repo.owner}/${repo.repo}/releases`;
+  return new Promise((resolve) => {
+    const req = https.get(url, {
+      headers: { 'User-Agent': 'Daily-Updater', Accept: 'application/vnd.github+json' },
+      timeout: 8000,
+    }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        resolve(null);
+        return;
+      }
+      let raw = '';
+      res.setEncoding('utf-8');
+      res.on('data', (chunk) => {
+        raw += chunk;
+        if (raw.length > 5 * 1024 * 1024) req.destroy(); // 防异常超大响应
+      });
+      res.on('end', () => {
+        try {
+          const releases = JSON.parse(raw);
+          const hit = releases.find(r =>
+            !r.draft && !r.prerelease && (r.tag_name === `v${version}` || r.tag_name === version)
+          );
+          resolve(hit && typeof hit.body === 'string' && hit.body.trim() ? hit.body : null);
+        } catch {
+          resolve(null);
+        }
+      });
+      res.on('error', () => resolve(null));
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+// 准备更新说明：优先取 GitHub 原始 Markdown；拿不到时退回 HTML 剥标签。
+async function prepareUpdateNotes(info) {
+  const notes = typeof info.releaseNotes === 'string'
+    ? info.releaseNotes
+    : (Array.isArray(info.releaseNotes)
+      ? info.releaseNotes.map(n => (typeof n === 'string' ? n : n.note || n.label || '')).filter(Boolean).join('\n')
+      : '');
+  const md = await fetchGitHubReleaseBody(info.version);
+  if (md) return cleanMarkdownNotes(md);
+  return cleanReleaseNotes(notes);
+}
+
 autoUpdater.on('checking-for-update', () => {
   forwardUpdateStatus({ status: 'checking' });
 });
 
-autoUpdater.on('update-available', (info) => {
-  const notes = typeof info.releaseNotes === 'string' ? info.releaseNotes : (Array.isArray(info.releaseNotes) ? info.releaseNotes.map(n => (typeof n === 'string' ? n : n.note || n.label || '')).filter(Boolean).join('\n') : '');
+autoUpdater.on('update-available', async (info) => {
   forwardUpdateStatus({
     status: 'available',
     version: info.version,
-    releaseNotes: cleanReleaseNotes(notes),
+    releaseNotes: await prepareUpdateNotes(info),
     releaseDate: info.releaseDate,
   });
 });
@@ -299,11 +376,10 @@ function setupIPC() {
     try {
       const result = await autoUpdater.checkForUpdates();
       const info = result?.updateInfo;
-      const notes = typeof info.releaseNotes === 'string' ? info.releaseNotes : (Array.isArray(info.releaseNotes) ? info.releaseNotes.map(n => (typeof n === 'string' ? n : n.note || '')).filter(Boolean).join('\n') : '');
       return {
         updateAvailable: true,
         version: info.version,
-        releaseNotes: cleanReleaseNotes(notes),
+        releaseNotes: await prepareUpdateNotes(info),
         releaseDate: info.releaseDate,
       };
     } catch (err) {
