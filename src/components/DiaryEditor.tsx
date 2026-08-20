@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Edit3, Trash2, X, Type, Image as ImageIcon, MessageSquare, Send, Download, Smile } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import EmojiMartPicker from './EmojiMartPicker';
 import type { DiaryEntry, Tag, Comment } from '../types';
@@ -309,23 +309,28 @@ export default function DiaryEditor({ diary, onUpdate, onPreviewImage, downloadP
             </button>
 
             {/* 352px = emoji-mart 9列×36px + 12px内边距 + 16px滚动条，恰好撑满弹层，无白边 */}
-              <AnimatePresence>
-              {emojiOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="absolute right-0 top-full mt-2 z-50 w-[352px] rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-[#2d2d30] overflow-hidden origin-top-right"
-                >
-                  <EmojiMartPicker
-                    theme={isDarkTheme ? 'dark' : 'light'}
-                    accentRgb={accentRgb}
-                    onEmojiSelect={insertEmoji}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* 不使用 AnimatePresence：其 exit 卸载在连续开/关后偶发失败，面板会卡在
+                opacity:0 残留（不可见但仍在 DOM、仍拦截点击、滚动位置残留）。
+                直接条件渲染，关闭时由 React 立即卸载，保证每次重开都是干净实例。
+                入场动画只动 transform 不动 opacity：motion 动画靠 rAF 驱动，
+                窗口隐藏/失焦时 rAF 被节流，动画会停在 initial 态。若 initial 含
+                opacity:0，面板就永远透明不可见（仍拦截点击）。只动 transform 时，
+                即使动画停摆，面板也自始至终 opacity:1 可见。 */}
+            {emojiOpen && (
+              <motion.div
+                key="emoji-panel"
+                initial={{ y: 8, scale: 0.96 }}
+                animate={{ y: 0, scale: 1 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="absolute right-0 top-full mt-2 z-50 w-[352px] rounded-2xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-[#2d2d30] overflow-hidden origin-top-right no-drag"
+              >
+                <EmojiMartPicker
+                  theme={isDarkTheme ? 'dark' : 'light'}
+                  accentRgb={accentRgb}
+                  onEmojiSelect={insertEmoji}
+                />
+              </motion.div>
+            )}
           </span>
 
           <Type size={14} className="text-text-muted/50 ml-1 transition-colors duration-300 group-hover/toolbar:text-text-muted" />

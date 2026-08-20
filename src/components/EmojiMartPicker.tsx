@@ -56,6 +56,14 @@ export default function EmojiMartPicker({ theme, accentRgb, onEmojiSelect }: Emo
     // 因此需同时覆盖 #root 与 button 等元素。
     const styleEl = document.createElement('style');
     styleEl.textContent =
+      // 整个 picker（含阴影 DOM 内全部元素）明确排除出窗口拖拽区域。
+      // 应用把 html/body/#root 设为 -webkit-app-region: drag（整窗可拖动），
+      // 只有 light DOM 的 button/.no-drag 等被排除。阴影 DOM 内的元素计算值
+      // 为 none，既非 drag 也非 no-drag，不会被排除出拖拽区域——真实鼠标按下
+      // 会被当成窗口拖拽吞掉（点击表情/分类全部无效），这里必须显式 no-drag。
+      ':host, :host * {' +
+      ' -webkit-app-region: no-drag;' +
+      '}' +
       ':host, #root, input, button {' +
       ' font-family: "Noto Color Emoji", "Segoe UI Emoji", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif !important;' +
       '}';
@@ -65,12 +73,34 @@ export default function EmojiMartPicker({ theme, accentRgb, onEmojiSelect }: Emo
     shadowRoot.appendChild(styleEl);
 
     // ─── 顶部分类点击跳转 ───
-    // emoji-mart 原生导航本身就带跳转，这里再在 ShadowRoot 上挂一个捕获期监听兜底，
-    // 保证点击 #nav 按钮后 .scroll 一定滚到对应分类区域。
+    // emoji-mart 原生导航自带跳转，但有两个不可靠点：
+    //  1. 搜索状态下点分类：搜索结果的 .category（无 data-id）会插到列表首位，
+    //     原生按 categoryId 定位的目标分类此刻 display:none，滚动位置计算失真，
+    //     表现为“点了分类没反应 / 跳到错误位置”；
+    //  2. 内部依赖 grid/refs 状态，picker 被 update()/reset() 重建期间可能失效。
+    // 因此在 ShadowRoot 捕获阶段接管 #nav 按钮的点击：stopImmediatePropagation
+    // 屏蔽原生 onClick，自己按顺序把按钮映射到 .scroll 中「非搜索结果」的
+    // .category（跳过无 data-id 的搜索结果分类），行为完全确定；
+    // 若处于搜索中，先清空搜索框恢复完整分类列表，再执行跳转。
     // 监听挂在 ShadowRoot 上（随元素创建即存在、不随重渲染重建），
     // 事件发生时再实时查询 #nav / .scroll，因此无需轮询等待渲染。
-    // nav 按钮顺序 = [常用, people, nature, ..., flags]，与 .scroll 内的
-    // .category 一一对应，按位置定位即可（不依赖 data-id 匹配）。
+    // 激活指示器（.bar / aria-selected）由下面的 pickerComponent() 直接驱动：
+    // emoji-mart 内部靠 IntersectionObserver 依据累计的 intersectionRatio
+    // 取「首个非零」分类，滚动定位后回调滞后且常取到陈旧比值，导致激活标签
+    // 错乱（实测点击后普遍滞后一个分类），因此禁用它并自行同步。
+    type NavStateLike = { setState(s: { categoryId: string }): void; state?: { categoryId?: string } };
+    type PickerComponentLike = {
+      observers?: IntersectionObserver[];
+      refs?: { navigation?: { current?: NavStateLike } };
+    };
+    const pickerComponent = () => (el as unknown as { component?: PickerComponentLike }).component;
+    const setActiveCategory = (categoryId: string) => {
+      disableStaleCategoryObserver(); // 兜底：确保陈旧 observer 不会异步覆盖
+      const nav = pickerComponent()?.refs?.navigation?.current;
+      if (!nav) return;
+      if (nav.state?.categoryId !== categoryId) nav.setState({ categoryId });
+    };
+
     const categoryNavListener = (event: Event) => {
       const target = event.target as Element | null;
       const button = target?.closest?.('button');
@@ -86,25 +116,116 @@ export default function EmojiMartPicker({ theme, accentRgb, onEmojiSelect }: Emo
       const index = buttons.indexOf(button);
       if (index < 0) return;
 
-      // 第一个按钮是「常用」，直接回到顶部
-      if (index === 0) {
-        scroll.scrollTop = 0;
-        return;
+      // 接管本次点击，避免原生 onClick 的滚动逻辑与这里冲突（尤其搜索态）
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const doScroll = () => {
+        // 第一个按钮「常用」→ 直接回到顶部
+        if (index === 0) {
+          scroll.scrollTop = 0;
+          setActiveCategory('frequent');
+          return;
+        }
+        // 其余按钮与 .scroll 中第 index 个「非搜索结果」分类同序对应：
+        // 搜索时列表首位会多出 .category#search（无 data-id），必须跳过。
+        let categoryEl: HTMLElement | null = null;
+        let j = 0;
+        for (const c of scroll.querySelectorAll<HTMLElement>('.category')) {
+          if (!c.dataset.id) continue; // 搜索结果分类，跳过
+          if (j === index) { categoryEl = c; break; }
+          j++;
+        }
+        if (!categoryEl || categoryEl.getClientRects().length === 0) return;
+
+        const scrollRect = scroll.getBoundingClientRect();
+        const categoryRect = categoryEl.getBoundingClientRect();
+        scroll.scrollTop = Math.max(0, scroll.scrollTop + categoryRect.top - scrollRect.top);
+        setActiveCategory(categoryEl.dataset.id || 'frequent');
+      };
+
+      // 搜索中点击分类：先清空搜索框（触发 emoji-mart 恢复完整分类列表），再跳转
+      const searchInput = shadowRoot.querySelector<HTMLInputElement>('input[type="search"]');
+      if (searchInput && searchInput.value.trim()) {
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // handleSearchInput 是异步的（await search('')），等其重渲染后再滚动
+        setTimeout(doScroll, 60);
+      } else {
+        doScroll();
       }
-
-      // 其余按钮与 .scroll 中的 .category 同序对应
-      const categoryEl = scroll.querySelectorAll<HTMLElement>('.category')[index];
-      if (!categoryEl || categoryEl.getClientRects().length === 0) return;
-
-      const scrollRect = scroll.getBoundingClientRect();
-      const categoryRect = categoryEl.getBoundingClientRect();
-      scroll.scrollTop = Math.max(0, scroll.scrollTop + categoryRect.top - scrollRect.top);
     };
     shadowRoot.addEventListener('click', categoryNavListener, true);
+
+    // ─── 激活指示器接管 ───
+    // 禁用 emoji-mart 的分类 IntersectionObserver（root=滚动区、rootMargin 为
+    // 默认值 "0px 0px 0px 0px" 的那个；行渲染观察器带宽边距，必须保留），
+    // 避免其用陈旧比值异步覆盖我们刚设置的激活状态。
+    // 注意：自定义元素的 component 与阴影树内容都是异步渲染的，挂载当下
+    // 拿不到 observer/.scroll，因此统一用 setupWhenReady 轮询，点击时兜底。
+    let observerDisabled = false;
+    let scrollListenerAttached = false;
+    const disableStaleCategoryObserver = () => {
+      if (observerDisabled) return true;
+      const comp = pickerComponent();
+      if (!comp?.observers) return false;
+      const scrollEl = shadowRoot.querySelector<HTMLElement>('.scroll'); // 实时查询
+      if (!scrollEl) return false;
+      for (const obs of comp.observers) {
+        if (obs instanceof IntersectionObserver && obs.root === scrollEl && obs.rootMargin === '0px 0px 0px 0px') {
+          obs.disconnect();
+          observerDisabled = true;
+        }
+      }
+      return observerDisabled;
+    };
+
+    // 手动滚动列表时同步激活指示器（替代被禁用的 observer）：
+    // 取「顶部边缘所在」的分类——最后一个 top 已越过视口顶部的 .category。
+    let scrollTick = 0;
+    const updateActiveCategoryByScroll = () => {
+      const scrollEl = shadowRoot.querySelector<HTMLElement>('.scroll');
+      if (!scrollEl) return;
+      const nav = pickerComponent()?.refs?.navigation?.current;
+      if (!nav) return;
+      const scrollRect = scrollEl.getBoundingClientRect();
+      const top = scrollRect.top + 2; // 视口顶部（+2 容忍 sticky 头的 1px 偏移）
+      let current = 'frequent';
+      for (const c of scrollEl.querySelectorAll<HTMLElement>('.category')) {
+        if (!c.dataset.id) continue; // 搜索结果分类，跳过
+        if (c.getBoundingClientRect().top <= top) current = c.dataset.id;
+        else break;
+      }
+      if (nav.state?.categoryId !== current) nav.setState({ categoryId: current });
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(scrollTick);
+      scrollTick = requestAnimationFrame(updateActiveCategoryByScroll);
+    };
+    const attachScrollListener = () => {
+      if (scrollListenerAttached) return true;
+      const scrollEl = shadowRoot.querySelector<HTMLElement>('.scroll');
+      if (!scrollEl) return false;
+      scrollEl.addEventListener('scroll', onScroll);
+      scrollListenerAttached = true;
+      return true;
+    };
+
+    let setupTries = 0;
+    const setupWhenReady = () => {
+      if (disableStaleCategoryObserver() && attachScrollListener()) return;
+      if (++setupTries < 40) setTimeout(setupWhenReady, 100);
+    };
+    setupWhenReady();
 
     instanceRef.current = el;
     return () => {
       shadowRoot.removeEventListener('click', categoryNavListener, true);
+      if (scrollListenerAttached) {
+        const scrollEl = shadowRoot.querySelector<HTMLElement>('.scroll');
+        scrollEl?.removeEventListener('scroll', onScroll);
+      }
+      cancelAnimationFrame(scrollTick);
       (instanceRef.current as unknown as HTMLElement | null)?.remove();
       instanceRef.current = null;
     };
